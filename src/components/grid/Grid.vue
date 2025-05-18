@@ -39,22 +39,22 @@
               }"
             >
               <GridLine 
-                v-for="(line, index) in gridLines"
+                v-for="(line, index) in state.gridLines"
                 :key="index"
                 v-bind="line"
               />
               <Cell
-                v-for="cell in cells"
+                v-for="cell in state.cells"
                 :key="cell"
                 v-bind="cell"
               />
               <CellOverlay
-                v-for="(overlay, index) in cellOverlays"
+                v-for="(overlay, index) in state.cellOverlays"
                 :key="index"
                 v-bind="overlay"
               />
               <Cell
-                v-for="(range, index) in ranges"
+                v-for="(range, index) in state.ranges"
                 :key="index"
                 v-bind="range"
               />
@@ -75,12 +75,12 @@
               }"
             >
               <GridLine 
-                v-for="(line, index) in gridLinesFrozenRow"
+                v-for="(line, index) in state.gridLinesFrozenRow"
                 :key="index"
                 v-bind="line"
               />
               <Cell
-                v-for="(cell, index) in frozenRowCells"
+                v-for="(cell, index) in state.frozenRowCells"
                 :key="index"
                 v-bind="cell"
               />
@@ -89,7 +89,7 @@
                 :config="frozenRowShadowComponent"
               />
               <CellOverlay
-                v-for="(overlay, index) in frozenRowCellOverlays"
+                v-for="(overlay, index) in state.frozenRowCellOverlays"
                 :key="index"
                 v-bind="overlay"
               />
@@ -110,12 +110,12 @@
               }"
             >
               <GridLine
-                v-for="(line, index) in gridLinesFrozenColumn"
+                v-for="(line, index) in state.gridLinesFrozenColumn"
                 :key="index"
                 v-bind="line"
               />
               <Cell
-                v-for="(cell, index) in frozenColumnCells"
+                v-for="(cell, index) in state.frozenColumnCells"
                 :key="index"
                 v-bind="cell"
               />
@@ -124,7 +124,7 @@
                 :config="frozenColumnShadowComponent"
               />
               <CellOverlay
-                v-for="(overlay, index) in frozenColumnCellOverlays"
+                v-for="(overlay, index) in state.frozenColumnCellOverlays"
                 :key="index"
                 v-bind="overlay"
               />
@@ -139,12 +139,12 @@
             }"
           >
             <GridLine
-              v-for="(line, index) in gridLinesFrozenIntersection"
+              v-for="(line, index) in state.gridLinesFrozenIntersection"
               :key="index"
               v-bind="line"
             />
             <Cell 
-              v-for="(cell, index) in frozenIntersectionCells"
+              v-for="(cell, index) in state.frozenIntersectionCells"
               :key="index"
               v-bind="cell"
             />
@@ -157,7 +157,7 @@
               :config="frozenColumnShadowComponent"
             />
             <CellOverlay 
-              v-for="(overlay, index) in frozenIntersectionCellOverlays"
+              v-for="(overlay, index) in state.frozenIntersectionCellOverlays"
               :key="index"
               v-bind="overlay"
             />
@@ -188,23 +188,23 @@
           }"
         >
           <HtmlBox 
-            v-for="(box, index) in borderStyleCells"
+            v-for="(box, index) in state.borderStyleCells"
             :key="index"
             v-bind="box"
           />
           <Selection
-            v-for="(selection, index) in fillSelections"
+            v-for="(selection, index) in state.fillSelections"
             :key="index"
             v-bind="selection"
           />
           <Selection
-            v-for="(selection, index) in selectionAreas"
+            v-for="(selection, index) in state.selectionAreas"
             :key="index"
             v-bind="selection"
           />
           <Selection
-            v-if="activeCellSelection"
-            v-bind="activeCellSelection"
+            v-if="state.activeCellSelection"
+            v-bind="state.activeCellSelection"
           />
           <FillHandle
             v-if="fillhandleComponent"
@@ -229,18 +229,18 @@
           }"
         >
           <HtmlBox 
-            v-for="(box, index) in borderStyleCellsFrozenColumns"
+            v-for="(box, index) in state.borderStyleCellsFrozenColumns"
             :key="index"
             v-bind="box"
           />
           <Selection
-            v-for="(selection, index) in selectionAreasFrozenColumns"
+            v-for="(selection, index) in state.selectionAreasFrozenColumns"
             :key="index"
             v-bind="selection"
           />
           <Selection
-            v-if="activeCellSelectionFrozenColumn"
-            v-bind="activeCellSelectionFrozenColumn"
+            v-if="state.activeCellSelectionFrozenColumn"
+            v-bind="state.activeCellSelectionFrozenColumn"
           />
           <FillHandle
             v-if="fillhandleComponent"
@@ -265,18 +265,18 @@
           }"
         >
           <HtmlBox 
-            v-for="(box, index) in borderStyleCellsFrozenRows"
+            v-for="(box, index) in state.borderStyleCellsFrozenRows"
             :key="index"
             v-bind="box"
           />
           <Selection
-            v-for="(selection, index) in selectionAreasFrozenRows"
+            v-for="(selection, index) in state.selectionAreasFrozenRows"
             :key="index"
             v-bind="selection"
           />
           <Selection
-            v-if="activeCellSelectionFrozenRow"
-            v-bind="activeCellSelectionFrozenRow"
+            v-if="state.activeCellSelectionFrozenRow"
+            v-bind="state.activeCellSelectionFrozenRow"
           />
           <FillHandle
             v-if="fillhandleComponent"
@@ -297,18 +297,18 @@
         }"
       >
         <HtmlBox 
-          v-for="(box, index) in borderStyleCellsIntersection"
+          v-for="(box, index) in state.borderStyleCellsIntersection"
           :key="index"
           v-bind="box"
         />
         <Selection
-          v-for="(selection, index) in selectionAreasIntersection"
+          v-for="(selection, index) in state.selectionAreasIntersection"
           :key="index"
           v-bind="selection"
         />
         <Selection
-          v-if="activeCellSelectionFrozenIntersection"
-          v-bind="activeCellSelectionFrozenIntersection"
+          v-if="state.activeCellSelectionFrozenIntersection"
+          v-bind="state.activeCellSelectionFrozenIntersection"
         />
         <FillHandle
           v-if="fillhandleComponent"
@@ -514,69 +514,7 @@ const snapToRowThrottler = ref<(({ deltaY }: SnapRowProps) => void) | null>(null
 const snapToColumnThrottler = ref<(({ deltaX }: SnapColumnProps) => void) | null>(null);
 const resetIsScrollingTimeoutID = ref<TimeoutID | null>(null);
 
-/* Draws gridlines */
-const gridLines = ref<ShapeConfig[]>([]);
-const gridLinesFrozenRow = ref<ShapeConfig[]>([]);
-const gridLinesFrozenColumn = ref<ShapeConfig[]>([]);
-const gridLinesFrozenIntersection = ref<ShapeConfig[]>([]);
-
-/* Draws all cells */
-const cells = ref<CellProps[]>([]);
-const ranges = ref<CellProps[]>([]);
-
-/**
- * Lets users draw cells on top of existing canvas
- */
-const cellOverlays = ref<StrokeCellProps[]>([]);
-
-/* Draws frozen rows */
-const frozenRowCells = ref<CellProps[]>([]);
-const frozenRowCellOverlays = ref<StrokeCellProps[]>([]);
-
-/* Draws frozen columns */
-const frozenColumnCells = ref<CellProps[]>([]);
-const frozenColumnCellOverlays = ref<StrokeCellProps[]>([]);
-
-/* Draws frozen intersection cells */
-const frozenIntersectionCells = ref<CellProps[]>([]);
-const frozenIntersectionCellOverlays = ref<StrokeCellProps[]>([]);
-
-/**
- * Draws active cell
-*/
-const fillHandleDimension = ref<{
-  x: number;
-  y: number;
-}>({
-  x: 0,
-  y: 0,
-});
-const activeCellSelection = ref<SelectionProps | null>(null);
-const activeCellSelectionFrozenColumn = ref<SelectionProps | null>(null);
-const activeCellSelectionFrozenRow = ref<SelectionProps | null>(null);
-const activeCellSelectionFrozenIntersection = ref<SelectionProps | null>(null);
-
-/**
- * Convert selections to area
- * Removed useMemo as changes to lastMeasureRowIndex, lastMeasuredColumnIndex,
- * does not trigger useMemo
- * Dependencies : [selections, rowStopIndex, columnStopIndex, instanceProps]
- */
-
-const isSelectionInProgress = ref(false);
-const selectionAreas = ref<SelectionProps[]>([]);
-const selectionAreasFrozenColumns = ref<SelectionProps[]>([]);
-const selectionAreasFrozenRows = ref<SelectionProps[]>([]);
-const selectionAreasIntersection = ref<SelectionProps[]>([]);
-
-/**
- * Fillselection
- */
-const fillSelections = ref<SelectionProps[]>([]);
-const borderStyleCells = ref<SelectionProps[]>([]);
-const borderStyleCellsFrozenColumns = ref<SelectionProps[]>([]);
-const borderStyleCellsFrozenRows = ref<SelectionProps[]>([]);
-const borderStyleCellsIntersection = ref<SelectionProps[]>([]);
+/* All grid rendering state is consolidated in state ref */
 
 const state = ref({
   gridLines: [],
@@ -603,6 +541,13 @@ const state = ref({
   isSelectionInProgress: false,
   selectionAreas: [],
   selectionAreasFrozenColumns: [],
+  selectionAreasFrozenRows: [],
+  selectionAreasIntersection: [],
+  fillSelections: [],
+  borderStyleCells: [],
+  borderStyleCellsFrozenColumns: [],
+  borderStyleCellsFrozenRows: [],
+  borderStyleCellsIntersection: []
 })
 
 /* Spacing for frozen row/column clip */
@@ -874,7 +819,7 @@ const frozenRowShadow = computed<ShapeConfig>(() => {
  */
 const fillHandle = computed(() => {
   return {
-    ...fillHandleDimension.value,
+    ...state.value.fillHandleDimension,
     stroke: selectionBorderColor.value,
     size: 8,
     borderColor: fillhandleBorderColor.value,
@@ -901,7 +846,7 @@ const frozenColumnShadowComponent = computed(() =>
  * fill handle 
  */
 const fillhandleComponent = computed(() => {
-  return showFillHandle.value && !isSelectionInProgress.value ? fillHandle.value : null
+  return showFillHandle.value && !state.value.isSelectionInProgress ? fillHandle.value : null
 })
 // ================ //
 
@@ -2257,34 +2202,36 @@ const renderGrid = () => {
   }
 
   // === set state === //
-  gridLines.value = gridLinesBuffer
-  gridLinesFrozenRow.value = gridLinesFrozenRowBuffer
-  gridLinesFrozenColumn.value = gridLinesFrozenColumnBuffer
-  gridLinesFrozenIntersection.value = gridLinesFrozenIntersectionBuffer
-  cells.value = cellsBuffer
-  ranges.value = rangesBuffer
-  cellOverlays.value = cellOverlaysBuffer
-  frozenRowCells.value = frozenRowCellsBuffer
-  frozenRowCellOverlays.value = frozenRowCellOverlaysBuffer
-  frozenColumnCells.value = frozenColumnCellsBuffer
-  frozenColumnCellOverlays.value = frozenColumnCellOverlaysBuffer
-  frozenIntersectionCells.value = frozenIntersectionCellsBuffer
-  frozenIntersectionCellOverlays.value = frozenIntersectionCellOverlaysBuffer
-  fillHandleDimension.value = fillHandleDimensionBuffer
-  activeCellSelection.value = activeCellSelectionBuffer
-  activeCellSelectionFrozenColumn.value = activeCellSelectionFrozenColumnBuffer
-  activeCellSelectionFrozenRow.value = activeCellSelectionFrozenRowBuffer
-  activeCellSelectionFrozenIntersection.value = activeCellSelectionFrozenIntersectionBuffer
-  isSelectionInProgress.value = isSelectionInProgressBuffer
-  selectionAreas.value = selectionAreasBuffer
-  selectionAreasFrozenColumns.value = selectionAreasFrozenColumnsBuffer
-  selectionAreasFrozenRows.value = selectionAreasFrozenRowsBuffer
-  selectionAreasIntersection.value = selectionAreasIntersectionBuffer
-  fillSelections.value = fillSelectionsBuffer
-  borderStyleCells.value = borderStyleCellsBuffer
-  borderStyleCellsFrozenColumns.value = borderStyleCellsFrozenColumnsBuffer
-  borderStyleCellsFrozenRows.value = borderStyleCellsFrozenRowsBuffer
-  borderStyleCellsIntersection.value = borderStyleCellsIntersectionBuffer
+  state.value = {
+    gridLines: gridLinesBuffer,
+    gridLinesFrozenRow: gridLinesFrozenRowBuffer,
+    gridLinesFrozenColumn: gridLinesFrozenColumnBuffer,
+    gridLinesFrozenIntersection: gridLinesFrozenIntersectionBuffer,
+    cells: cellsBuffer,
+    ranges: rangesBuffer,
+    cellOverlays: cellOverlaysBuffer,
+    frozenRowCells: frozenRowCellsBuffer,
+    frozenRowCellOverlays: frozenRowCellOverlaysBuffer,
+    frozenColumnCells: frozenColumnCellsBuffer,
+    frozenColumnCellOverlays: frozenColumnCellOverlaysBuffer,
+    frozenIntersectionCells: frozenIntersectionCellsBuffer,
+    frozenIntersectionCellOverlays: frozenIntersectionCellOverlaysBuffer,
+    fillHandleDimension: fillHandleDimensionBuffer,
+    activeCellSelection: activeCellSelectionBuffer,
+    activeCellSelectionFrozenColumn: activeCellSelectionFrozenColumnBuffer,
+    activeCellSelectionFrozenRow: activeCellSelectionFrozenRowBuffer,
+    activeCellSelectionFrozenIntersection: activeCellSelectionFrozenIntersectionBuffer,
+    isSelectionInProgress: isSelectionInProgressBuffer,
+    selectionAreas: selectionAreasBuffer,
+    selectionAreasFrozenColumns: selectionAreasFrozenColumnsBuffer,
+    selectionAreasFrozenRows: selectionAreasFrozenRowsBuffer,
+    selectionAreasIntersection: selectionAreasIntersectionBuffer,
+    fillSelections: fillSelectionsBuffer,
+    borderStyleCells: borderStyleCellsBuffer,
+    borderStyleCellsFrozenColumns: borderStyleCellsFrozenColumnsBuffer,
+    borderStyleCellsFrozenRows: borderStyleCellsFrozenRowsBuffer,
+    borderStyleCellsIntersection: borderStyleCellsIntersectionBuffer
+  }
 }
 // ================ //
 
