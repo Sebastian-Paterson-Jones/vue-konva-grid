@@ -1,7 +1,7 @@
 import { ItemSizer, ScrollCoords, RendererProps, StylingProps, ViewPortProps, CellInterface, SelectionArea, AreaProps, CellRangeArea, SelectionProps } from "@/types";
 import { ShapeConfig } from "konva/lib/Shape";
 import { StageConfig } from "konva/lib/Stage";
-import { HTMLAttributes } from "vue";
+import { HTMLAttributes, VNode } from "vue";
 
 export interface GridProps extends /* @vue-ignore */ Omit<HTMLAttributes, "onScroll" | "children"> {
   /**
@@ -119,15 +119,15 @@ export interface GridProps extends /* @vue-ignore */ Omit<HTMLAttributes, "onScr
   /**
    * Cell renderer. Must be a Konva Component eg: Group, Rect etc
    */
-  itemRenderer?: (props: RendererProps) => React.ReactNode;
+  itemRenderer?: (props: RendererProps) => VNode;
   /**
    * Render custom overlays like stroke on top of cell
    */
-  overlayRenderer?: (props: RendererProps) => React.ReactNode;
+  overlayRenderer?: (props: RendererProps) => VNode;
   /**
    * Allow users to customize selected cells design
    */
-  selectionRenderer?: (props: SelectionProps) => React.ReactNode;
+  selectionRenderer?: (props: SelectionProps) => VNode;
   /**
    * Bind to fill handle
    */
@@ -144,11 +144,11 @@ export interface GridProps extends /* @vue-ignore */ Omit<HTMLAttributes, "onScr
   /**
    * Custom grid overlays
    */
-  children?: (props: ScrollCoords) => React.ReactNode;
+  children?: (props: ScrollCoords) => VNode;
   /**
    * Allows users to Wrap stage children in Top level Context
    */
-  wrapper?: (children: React.ReactNode) => React.ReactNode;
+  wrapper?: (children: VNode) => VNode;
   /**
    * Props that can be injected to Konva stage
    */
@@ -181,7 +181,7 @@ export interface GridProps extends /* @vue-ignore */ Omit<HTMLAttributes, "onScr
   /**
    * Gridline component
    */
-  gridLineRenderer?: (props: ShapeConfig) => React.ReactNode;
+  gridLineRenderer?: (props: ShapeConfig) => VNode;
   /**
    * Shadow stroke color
    */

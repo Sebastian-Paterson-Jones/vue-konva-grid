@@ -9,163 +9,6 @@
     ref="scrollContainerRef"
   >
     <div
-      tabIndex="0"
-      class="rowsncolumns-grid-container"
-      ref="containerRef"
-      v-bind="restProps"
-    >
-      <v-stage
-        :config="{
-          width: containerWidth,
-          height: containerHeight,
-          listening: listenToEvents,
-          ...stageProps
-        }"
-        ref="stageRef"
-      >
-        <v-layer>
-          <v-group
-            :config="{
-              clipX: frozenColumnWidth,
-              clipY: frozenRowHeight,
-              clipWidth: containerWidth - frozenColumnWidth,
-              clipHeight: containerHeight - frozenRowHeight,
-            }"
-          >
-            <v-group 
-              :config="{
-                offsetY: scrollTop,
-                offsetX: scrollLeft,
-              }"
-            >
-              <GridLine 
-                v-for="(line, index) in state.gridLines"
-                :key="index"
-                v-bind="line"
-              />
-              <Cell
-                v-for="cell in state.cells"
-                :key="cell"
-                v-bind="cell"
-              />
-              <CellOverlay
-                v-for="(overlay, index) in state.cellOverlays"
-                :key="index"
-                v-bind="overlay"
-              />
-              <Cell
-                v-for="(range, index) in state.ranges"
-                :key="index"
-                v-bind="range"
-              />
-            </v-group>
-          </v-group>
-          <v-group
-            :config="{
-              clipX: frozenColumnWidth,
-              clipY: 0,
-              clipWidth: containerWidth - frozenColumnWidth,
-              clipHeight: frozenRowHeight + frozenSpacing,
-            }"
-          >
-            <v-group
-              :config="{
-                offsetY: 0,
-                offsetX: scrollLeft,
-              }"
-            >
-              <GridLine 
-                v-for="(line, index) in state.gridLinesFrozenRow"
-                :key="index"
-                v-bind="line"
-              />
-              <Cell
-                v-for="(cell, index) in state.frozenRowCells"
-                :key="index"
-                v-bind="cell"
-              />
-              <v-line
-                v-if="frozenRowShadowComponent"
-                :config="frozenRowShadowComponent"
-              />
-              <CellOverlay
-                v-for="(overlay, index) in state.frozenRowCellOverlays"
-                :key="index"
-                v-bind="overlay"
-              />
-            </v-group>
-          </v-group>
-          <v-group
-            :config="{
-              clipX: 0,
-              clipY: frozenRowHeight,
-              clipWidth: frozenColumnWidth + frozenSpacing,
-              clipHeight: containerHeight - frozenRowHeight,
-            }"
-          >
-            <v-group
-              :config="{
-                offsetY: scrollTop,
-                offsetX: 0,
-              }"
-            >
-              <GridLine
-                v-for="(line, index) in state.gridLinesFrozenColumn"
-                :key="index"
-                v-bind="line"
-              />
-              <Cell
-                v-for="(cell, index) in state.frozenColumnCells"
-                :key="index"
-                v-bind="cell"
-              />
-              <v-line
-                v-if="frozenColumnShadowComponent"
-                :config="frozenColumnShadowComponent"
-              />
-              <CellOverlay
-                v-for="(overlay, index) in state.frozenColumnCellOverlays"
-                :key="index"
-                v-bind="overlay"
-              />
-            </v-group>
-          </v-group>
-          <v-group
-            :config="{
-              clipX: 0,
-              clipY: 0,
-              clipWidth: frozenColumnWidth + frozenSpacing,
-              clipHeight: frozenRowHeight + frozenSpacing,
-            }"
-          >
-            <GridLine
-              v-for="(line, index) in state.gridLinesFrozenIntersection"
-              :key="index"
-              v-bind="line"
-            />
-            <Cell 
-              v-for="(cell, index) in state.frozenIntersectionCells"
-              :key="index"
-              v-bind="cell"
-            />
-            <v-line
-              v-if="frozenRowShadowComponent"
-              :config="frozenRowShadowComponent"
-            />
-            <v-line
-              v-if="frozenRowShadowComponent"
-              :config="frozenColumnShadowComponent"
-            />
-            <CellOverlay 
-              v-for="(overlay, index) in state.frozenIntersectionCellOverlays"
-              :key="index"
-              v-bind="overlay"
-            />
-          </v-group>
-        </v-layer>
-      </v-stage>
-    </div>
-    <div
       :style="{
         pointerEvents: 'none',
       }"
@@ -316,54 +159,6 @@
         />
       </div>
     </div>
-    <template v-if="showScrollbar">
-      <div
-        class="rowsncolumns-grid-scrollbar rowsncolumns-grid-scrollbar-y"
-        tabIndex="-1"
-        :style="{
-          height: containerHeight + 'px',
-          overflow: 'scroll',
-          position: 'absolute',
-          right: 0,
-          top: 0,
-          width: scrollbarSize + 'px',
-          willChange: 'transform',
-        }"
-        @scroll="handleScroll"
-        ref="verticalScrollRef"
-      >
-        <div
-          :style="{
-            position: 'absolute',
-            height: estimatedTotalHeight + 'px',
-            width: 1 + 'px',
-          }"
-        ></div>
-      </div>
-      <div
-        class="rowsncolumns-grid-scrollbar rowsncolumns-grid-scrollbar-x"
-        tabIndex="-1"
-        :style="{
-          overflow: 'scroll',
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          width: containerWidth + 'px',
-          height: scrollbarSize + 'px',
-          willChange: 'transform',
-        }"
-        @scroll="handleScrollLeft"
-        ref="horizontalScrollRef"
-      >
-        <div
-          :style="{
-            position: 'absolute',
-            width: estimatedTotalWidth + 'px',
-            height: 1 + 'px',
-          }"
-        ></div>
-      </div>
-    </template>
   </div>
 </template>
 
@@ -374,9 +169,8 @@ import {
   onMounted,
   onUnmounted,
 } from "vue";
-import invariant from "tiny-invariant";
-import Konva from "konva";
-import {
+import { Application, Container, Graphics } from 'pixi.js';
+import { 
   getRowStartIndexForOffset,
   getRowStopIndexForStartIndex,
   getColumnStartIndexForOffset,
@@ -399,7 +193,6 @@ import {
   clampIndex,
   canUseDOM,
 } from "../../helpers/helpers";
-import type { ShapeConfig } from "konva/lib/Shape";
 import type { GridProps } from "./types";
 import type {
   CellInterface,
@@ -498,7 +291,7 @@ const instanceProps = ref<InstanceInterface>({
   recalcColumnIndices: [],
   recalcRowIndices: [],
 });
-const stageRef = ref<Konva.Stage>(null);
+const stageRef = ref<HTMLDivElement>(null);
 const containerRef = ref<HTMLDivElement>(null);
 const scrollContainerRef = ref<HTMLDivElement>(null);
 const verticalScrollRef = ref<HTMLDivElement>(null);
@@ -509,7 +302,7 @@ const scrollTop = ref(0);
 const scrollLeft = ref(0);
 const isScrolling = ref(false);
 const verticalScrollDirection = ref(Direction.Down);
-const horizontalScrollDirection = ref(Direction.Right);
+const horizontalScrollDirection = ref<Direction>(Direction.Right);
 const snapToRowThrottler = ref<(({ deltaY }: SnapRowProps) => void) | null>(null);
 const snapToColumnThrottler = ref<(({ deltaX }: SnapColumnProps) => void) | null>(null);
 const resetIsScrollingTimeoutID = ref<TimeoutID | null>(null);
@@ -774,44 +567,43 @@ const estimatedTotalWidth = computed(() =>
 /**
  * Frozen column shadow
  */
-const frozenColumnShadow = computed<ShapeConfig>(() => {
+const frozenColumnShadow = computed(() => {
   const frozenColumnLineX = getColumnOffset(frozenColumns.value);
   const frozenColumnLineY = getRowOffset(
     Math.min(rowStopIndex.value + 1, rowCount.value)
   );
 
-  return {
-    points: [frozenColumnLineX, 0, frozenColumnLineX, frozenColumnLineY],
-    offsetX: -0.5,
-    strokeWidth: 1,
-    shadowForStrokeEnabled: false,
-    strokeScaleEnabled: false,
-    hitStrokeWidth: 0,
-    listening: false,
-    perfectDrawEnabled: false,
-    ...shadowSettings.value,
-  }
+  return (graphics: any) => {
+    graphics.clear();
+    graphics.lineStyle(
+      shadowSettings.value?.strokeWidth || 1, 
+      0x999999, 
+      0.3
+    );
+    graphics.moveTo(frozenColumnLineX, 0);
+    graphics.lineTo(frozenColumnLineX, frozenColumnLineY);
+  };
 });
 
 /**
  * Frozen row shadow
  */
-const frozenRowShadow = computed<ShapeConfig>(() => {
+const frozenRowShadow = computed(() => {
   const frozenRowLineY = getRowOffset(frozenRows.value);
   const frozenRowLineX = getColumnOffset(
     Math.min(columnStopIndex.value + 1, columnCount.value)
   );
-  return {
-    points: [0, frozenRowLineY, frozenRowLineX, frozenRowLineY],
-    offsetY: -0.5,
-    strokeWidth: 1,
-    shadowForStrokeEnabled: false,
-    strokeScaleEnabled: false,
-    hitStrokeWidth: 0,
-    listening: false,
-    perfectDrawEnabled: false,
-    ...shadowSettings.value,
-  }
+  
+  return (graphics: any) => {
+    graphics.clear();
+    graphics.lineStyle(
+      shadowSettings.value?.strokeWidth || 1, 
+      0x999999,
+      0.3
+    );
+    graphics.moveTo(0, frozenRowLineY);
+    graphics.lineTo(frozenRowLineX, frozenRowLineY);
+  };
 });
 
 /**
@@ -848,6 +640,15 @@ const frozenColumnShadowComponent = computed(() =>
 const fillhandleComponent = computed(() => {
   return showFillHandle.value && !state.value.isSelectionInProgress ? fillHandle.value : null
 })
+
+// Add Pixi.js options
+const pixiOptions = computed(() => ({
+  antialias: true,
+  transparent: true,
+  resolution: window.devicePixelRatio || 1,
+  autoDensity: true,
+  backgroundAlpha: 0,
+}));
 // ================ //
 
 // ==== methods ==== //
@@ -1035,9 +836,11 @@ const isWithinFrozenRowBoundary = (y: number) => {
   return frozenRows.value > 0 && y < frozenRowHeight.value;
 };
 
-/**
- * Get relative mouse position
- */
+// Add pixiApp and mainContainer refs
+const pixiApp = ref<Application | null>(null);
+const mainContainer = ref<Container | null>(null);
+
+// Remove the getStage call in getRelativePositionFromOffset
 const getRelativePositionFromOffset = (
   left: number,
   top: number
@@ -1047,17 +850,17 @@ const getRelativePositionFromOffset = (
     "Top and left should be a number"
   );
   if (!stageRef.value) return null;
-  const stage = stageRef.value.getStage();
+  
+  // Instead of using Konva's transform methods, we calculate position directly
   const rect = containerRef.value?.getBoundingClientRect();
   if (rect) {
     left = left - rect.x;
     top = top - rect.y;
   }
-  const { x, y } = stage
-    .getAbsoluteTransform()
-    .copy()
-    .invert()
-    .point({ x: left, y: top });
+  
+  // Calculate the actual position considering scroll
+  const x = left + scrollLeft.value;
+  const y = top + scrollTop.value;
 
   return { x, y };
 };
@@ -1159,88 +962,6 @@ const getViewPort = (): ViewPortProps => {
   };
 };
 
-const resetIsScrollingDebounced = () => {
-  if (resetIsScrollingTimeoutID.value !== null) {
-    cancelTimeout(resetIsScrollingTimeoutID.value);
-  }
-  resetIsScrollingTimeoutID.value = requestTimeout(resetIsScrolling, 150);
-};
-
-/* Reset isScrolling */
-const resetIsScrolling = () => {
-  resetIsScrollingTimeoutID.value = null;
-  isScrolling.value = false;
-};
-
-/* Handle vertical scroll */
-const handleScroll = (e: Event) => {
-  const { scrollTop: localScrollTop } = e.target as HTMLDivElement;
-
-  isScrolling.value = true,
-  verticalScrollDirection.value =
-      scrollTop.value > localScrollTop ? Direction.Up : Direction.Down,
-  scrollTop.value = localScrollTop;
-
-  /* Scroll callbacks */
-  onImmediateScroll.value?.({ scrollTop: scrollTop.value, scrollLeft: scrollLeft.value });
-
-  /* Reset isScrolling if required */
-  resetIsScrollingDebounced();
-};
-
-/* Handle horizontal scroll */
-const handleScrollLeft = (e: Event) => {
-  const { scrollLeft: localScrollLeft } = e.target as HTMLDivElement;
-  isScrolling.value = true,
-  horizontalScrollDirection.value =
-      scrollLeft.value > localScrollLeft ? Direction.Left : Direction.Right,
-  scrollLeft.value = localScrollLeft;
-
-  /* Scroll callbacks */
-  onImmediateScroll.value?.({ scrollLeft: scrollLeft.value, scrollTop: scrollTop.value });
-
-  /* Reset isScrolling if required */
-  resetIsScrollingDebounced();
-};
-
-/* Scroll based on left, top position */
-const scrollTo = ({ scrollTop: localScrollTop, scrollLeft: localScrollLeft }: OptionalScrollCoords) => {
-  /* If scrollbar is visible, lets update it which triggers a state change */
-  if (showScrollbar.value) {
-    if (horizontalScrollRef.value && localScrollLeft !== void 0)
-      horizontalScrollRef.value.scrollLeft = localScrollLeft;
-    if (verticalScrollRef.value && localScrollTop !== void 0)
-      verticalScrollRef.value.scrollTop = localScrollTop;
-  } else {
-    scrollLeft.value = localScrollLeft == void 0 ? scrollLeft.value : localScrollLeft;
-    scrollTop.value = localScrollTop == void 0 ? scrollTop.value : localScrollTop;
-  }
-};
-
-/* Scroll grid to top */
-const scrollToTop = () => {
-  scrollTo({ scrollTop: 0, scrollLeft: 0 });
-};
-
-/* Scroll grid to bottom */
-const scrollToBottom = () => {
-  scrollTo({ scrollTop: estimatedTotalHeight.value - containerHeight.value });
-};
-
-/**
- * Scrollby utility
- */
-const scrollBy = ({ x, y }: PosXY) => {
-  if (showScrollbar) {
-    if (horizontalScrollRef.value && x !== void 0)
-      horizontalScrollRef.value.scrollLeft += x;
-    if (verticalScrollRef.value && y !== void 0)
-      verticalScrollRef.value.scrollTop += y;
-  } else {
-    scrollLeft.value = x == void 0 ? scrollLeft.value : scrollLeft.value + x;
-    scrollTop.value = y == void 0 ? scrollTop.value : scrollTop.value + y;
-  }
-};
 
 /**
  * Scrolls to cell
@@ -1325,55 +1046,7 @@ const scrollToItem = (
 /**
  * Fired when user tries to scroll the canvas
  */
-const handleWheel = (event: WheelEvent) => {
-  /* If user presses shift key, scroll horizontally */
-  const isScrollingHorizontally = event.shiftKey;
 
-  /* Prevent browser back in Mac */
-  event.preventDefault();
-  const { deltaX, deltaY, deltaMode } = event;
-  /* Scroll natively */
-  if (wheelingRef.value) return;
-
-  let dx = isScrollingHorizontally ? deltaY : deltaX;
-  let dy = deltaY;
-
-  /* Scroll only in one direction */
-  const isHorizontal = isScrollingHorizontally || Math.abs(dx) > Math.abs(dy);
-
-  /* If snaps are active */
-  if (snap.value) {
-    if (isHorizontal) {
-      snapToColumnThrottler.value?.({
-        deltaX,
-      });
-    } else {
-      snapToRowThrottler.value?.({
-        deltaY,
-      });
-    }
-    return;
-  }
-
-  if (deltaMode === 1) {
-    dy = dy * scrollbarSize.value;
-  }
-  if (!horizontalScrollRef.value || !verticalScrollRef.value) return;
-  const currentScroll = isHorizontal
-    ? horizontalScrollRef.value?.scrollLeft
-    : verticalScrollRef.value?.scrollTop;
-  wheelingRef.value = window.requestAnimationFrame(() => {
-    wheelingRef.value = null;
-    if (isHorizontal) {
-      if (horizontalScrollRef.value)
-        horizontalScrollRef.value.scrollLeft = currentScroll + dx;
-    } else {
-      if (verticalScrollRef.value)
-        verticalScrollRef.value.scrollTop = currentScroll + dy;
-    }
-    renderGrid()
-  });
-};
 const renderGrid = () => {
   const gridLinesBuffer = []
   const gridLinesFrozenRowBuffer = []
@@ -2324,15 +1997,87 @@ watch([
 
 // ===== lifecycle ===== //
 onMounted(() => {
+  // Initialize Pixi.js
+  if (stageRef.value) {
+    // Create the Pixi Application
+    pixiApp.value = new Application({
+      width: containerWidth.value,
+      height: containerHeight.value,
+      antialias: true,
+      transparent: true,
+      resolution: window.devicePixelRatio || 1,
+      autoDensity: true,
+      backgroundAlpha: 0,
+    });
+    
+    // Add the Pixi canvas to our container
+    stageRef.value.appendChild(pixiApp.value.view as HTMLCanvasElement);
+    
+    // Create the main container
+    mainContainer.value = new Container();
+    pixiApp.value.stage.addChild(mainContainer.value);
+    
+    // Now we need to build our scene programmatically
+    createPixiScene();
+    
+    // Start rendering
+    pixiApp.value.ticker.add(onPixiTick);
+  }
+  
+  // Add our scroll event listener
   scrollContainerRef.value?.addEventListener("wheel", handleWheel, {
     passive: false,
   });
-  renderGrid()
+  
+  // Initial render
+  renderGrid();
 });
 onUnmounted(() => {
+  // Remove scroll event listener
   scrollContainerRef.value?.removeEventListener("wheel", handleWheel);
+  
+  // Clean up Pixi.js resources
+  if (pixiApp.value) {
+    pixiApp.value.ticker.remove(onPixiTick);
+    pixiApp.value.destroy(true, true);
+    pixiApp.value = null;
+  }
 });
 // ================ //
+
+// Pixi.js animation tick function
+const onPixiTick = () => {
+  // Update the Pixi scene when needed
+  if (isScrolling.value) {
+    updatePixiScene();
+  }
+};
+
+// Create the initial Pixi.js scene structure
+const createPixiScene = () => {
+  if (!mainContainer.value || !pixiApp.value) return;
+  
+  // Clear existing children
+  mainContainer.value.removeChildren();
+  
+  // Create container structure for main content
+  const gridContainer = new Container();
+  mainContainer.value.addChild(gridContainer);
+  
+  // TODO: Add more structure based on our needs
+  // This is where we would add the various containers for
+  // frozen rows/columns, cell overlays, etc.
+};
+
+// Update the Pixi.js scene with current state
+const updatePixiScene = () => {
+  if (!mainContainer.value || !pixiApp.value) return;
+  
+  // Update container positions based on scroll
+  // This is where we would update positions based on scrollLeft/scrollTop
+  
+  // TODO: Implement the rest of the scene updates
+};
 </script>
 
 <style scoped></style>

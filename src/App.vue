@@ -1,7 +1,9 @@
 <template>
   <Grid 
-    :row-count="100"
-    :column-count="100"
+    :row-count="1000"
+    :column-count="1000"
+    :frozen-columns="1"
+    :frozen-rows="1"
   />
 </template>
 
