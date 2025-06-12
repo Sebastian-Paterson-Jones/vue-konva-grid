@@ -1,6 +1,6 @@
-import { ref, Ref } from "vue";
+import { computed, ref, Ref } from "vue";
 import { Application, ICanvas } from "pixi.js";
-import { getItemMetadata } from "@/helpers/helpers";
+import { AreaProps, Cell, CellInterface, Direction } from "@/types";
 
 export const useGrid = ({
   gridRef,
@@ -15,6 +15,11 @@ export const useGrid = ({
   rowsFrozen,
   columnsFrozen,
   onBeforeRenderRow,
+  containerHeight,
+  containerWidth,
+  scrollTop,
+  scrollLeft,
+  isScrolling,
 }: {
   gridRef: Ref<HTMLDivElement>;
   rowsCount: number;
@@ -29,6 +34,11 @@ export const useGrid = ({
   isHiddenColumn: (columnIndex: number) => boolean;
   isHiddenCell: (rowIndex: number, columnIndex: number) => boolean;
   onBeforeRenderRow: (rowIndex: number) => void;
+  containerHeight: number;
+  containerWidth: number;
+  scrollTop: Ref<number>;
+  scrollLeft: Ref<number>;
+  isScrolling: Ref<boolean>;
 }) => {
   // ==== Data ==== //
   let pixiApp: Application | null = null;
@@ -135,6 +145,8 @@ export const useGrid = ({
 
     return columnSizeCache[columnIndex];
   }
+  const getFrozenColumnWidth = () => getColumnSizing(columnsFrozen).offset;
+  const getFrozenRowHeight = () => getRowSizing(rowsFrozen).offset;
   const findNearestRowBinarySearch = (high: number, low: number, offset: number) => {
     while (low <= high) {
       const middle = low + Math.floor((high - low) / 2);
@@ -247,10 +259,91 @@ export const useGrid = ({
       );
     }
   }
+  const getRowStartIndex = (offset) => {
+    return findNearestRow(offset);
+  }
+  const getRowStopIndex = (rowStartIndex: number) => {
+    const itemMetadata = getRowSizing(rowStartIndex);
+    const maxOffset = scrollTop.value + containerHeight;
+  
+    let offset = itemMetadata.offset + itemMetadata.size;
+    let stopIndex = rowStartIndex;
+  
+    while (stopIndex < rowsCount - 1 && offset < maxOffset) {
+      stopIndex++;
+      offset += getRowSizing(stopIndex).size;
+    }
+  
+    return stopIndex;
+  }
+  const getColumnStartIndex = (offset: number) => {
+    return findNearestColumn(offset);
+  }
+  const getColumnStopIndex = (columnStartIndex: number) => {
+    const itemMetadata = getColumnSizing(columnStartIndex);
+    const maxOffset = scrollLeft.value + containerWidth;
+  
+    let offset = itemMetadata.offset + itemMetadata.size;
+    let stopIndex = columnStartIndex;
+  
+    while (stopIndex < columnsCount - 1 && offset < maxOffset) {
+      stopIndex++;
+      offset += getColumnSizing(stopIndex).size;
+    }
+  
+    return stopIndex;
+  }
+  const rowStartIndex = () => {
+    const startIndex = getRowStartIndex(scrollTop.value + getFrozenRowHeight());
+    /* 
+      Overscan by one item in each direction so that tab/focus works.
+      If there isn't at least one extra item, tab loops back around.
+    */
+    const overscanBackward =
+      Number(!isScrolling.value || 1);
+
+    return Math.max(0, startIndex - overscanBackward)
+  };
+  const rowStopIndex = () => {
+    /* 
+      Overscan by one item in each direction so that tab/focus works.
+      If there isn't at least one extra item, tab loops back around.
+    */
+    const overscanForward =
+      Number(!isScrolling.value || 1);
+
+    return Math.max(0, Math.min(rowsCount - 1, getRowStopIndex(scrollTop.value + getFrozenRowHeight()) + overscanForward));
+  };
+  const columnStartIndex = () => {
+    const startIndex = getColumnStartIndex(scrollLeft.value + getFrozenColumnWidth());
+    // Overscan by one item in each direction so that tab/focus works.
+    // If there isn't at least one extra item, tab loops back around.
+    const overscanBackward =
+      Number(!isScrolling.value || 1);
+    return Math.max(0, startIndex - overscanBackward);
+  };
+  const columnStopIndex = () => {
+    const stopIndex = getColumnStopIndex(scrollLeft.value + getFrozenColumnWidth());
+    // Overscan by one item in each direction so that tab/focus works.
+    // If there isn't at least one extra item, tab loops back around.
+    const overscanForward =
+      Number(!isScrolling.value || 1);
+    return Math.max(0, Math.min(columnsCount - 1, stopIndex + overscanForward));
+  }
+  const getCellBounds = (
+    rowIndex, columnIndex
+  ): AreaProps => {
+    return {
+      top: rowIndex,
+      left: columnIndex,
+      right: columnIndex,
+      bottom: rowIndex,
+    } as AreaProps;
+  };
   const renderCells = () => {
-    const mergedCellRenderMap = new Set();
+    const cellsBuffer: Cell[] = [];
     if (columnsCount > 0 && rowsCount) {
-      for (let rowIndex = rowStartIndex.value; rowIndex <= rowStopIndex.value; rowIndex++) {
+      for (let rowIndex = rowStartIndex(); rowIndex <= rowStopIndex(); rowIndex++) {
         /* Skip frozen rows */
         if (rowIndex < rowsFrozen || isHiddenRow?.(rowIndex)) {
           continue;
@@ -262,8 +355,8 @@ export const useGrid = ({
         onBeforeRenderRow?.(rowIndex);
 
         for (
-          let columnIndex = columnStartIndex.value;
-          columnIndex <= columnStopIndex.value;
+          let columnIndex = columnStartIndex();
+          columnIndex <= columnStopIndex();
           columnIndex++
         ) {
           /**
@@ -274,31 +367,17 @@ export const useGrid = ({
             continue;
           }
 
-          const isMerged = isMergedCell(rowIndex, columnIndex);
           const bounds = getCellBounds(rowIndex, columnIndex);
-          const actualRowIndex = isMerged ? bounds.top : rowIndex;
-          const actualColumnIndex = isMerged ? bounds.left : columnIndex;
           const actualBottom = Math.max(rowIndex, bounds.bottom);
           const actualRight = Math.max(columnIndex, bounds.right);
-          if (!isMerged && isHiddenCell?.(actualRowIndex, actualColumnIndex)) {
+          if (isHiddenCell?.(rowIndex, columnIndex)) {
             continue;
           }
-          if (isMerged) {
-            const cellId = cellIdentifier(bounds.top, bounds.left);
-            if (mergedCellRenderMap.has(cellId)) {
-              continue;
-            }
-            mergedCellRenderMap.add(cellId);
-          }
 
-          const y = getRowOffset(actualRowIndex);
-          const height =
-            getRowOffset(actualBottom) - y + getRowHeight(actualBottom);
-
-          const x = getColumnOffset(actualColumnIndex);
-
-          const width =
-            getColumnOffset(actualRight) - x + getColumnWidth(actualRight);
+          const y = getRowSizing(rowIndex).offset;
+          const height = getRowSizing(actualBottom).offset - y + getRowHeight(actualBottom);
+          const x = getColumnSizing(columnIndex).offset;
+          const width = getColumnSizing(actualRight).offset - x + getColumnWidth(actualRight);
 
           cellsBuffer.push(
             {
@@ -306,13 +385,9 @@ export const useGrid = ({
               y,
               width,
               height,
-              rowIndex: actualRowIndex,
-              columnIndex: actualColumnIndex,
-              isMergedCell: isMerged,
-              key: itemKey({
-                rowIndex: actualRowIndex,
-                columnIndex: actualColumnIndex,
-              }),
+              rowIndex,
+              columnIndex,
+              key: `${rowIndex}:${columnIndex}`,
             }
           );
         }

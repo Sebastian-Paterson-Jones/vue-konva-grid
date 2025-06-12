@@ -49,6 +49,16 @@ const scrollerRef = ref<InstanceType<typeof Scroller>>();
 // ================ //
 
 // ==== Composables ==== //
+const {
+  onWheel,
+  scrollTop,
+  scrollLeft,
+  isScrolling,
+  horizontalScrollDirection,
+  verticalScrollDirection,
+} = useScroller({
+  scrollerRef,
+});
 const { 
   initGrid, 
   estimatedTotalWidth, 
@@ -67,21 +77,12 @@ const {
   isHiddenColumn: props.isHiddenColumn,
   isHiddenCell: props.isHiddenCell,
   onBeforeRenderRow: props.onBeforeRenderRow,
+  containerHeight: props.height,
+  containerWidth: props.width,
+  scrollTop: scrollTop,
+  scrollLeft: scrollLeft,
+  isScrolling: isScrolling,
 });
-const {
-  onWheel,
-  scrollTop,
-  scrollLeft,
-  isScrolling,
-  horizontalScrollDirection,
-  verticalScrollDirection,
-} = useScroller({
-  scrollerRef,
-});
-// ================ //
-
-// ==== Data ==== //
-
 // ================ //
 
 // ==== Life cycle ==== //

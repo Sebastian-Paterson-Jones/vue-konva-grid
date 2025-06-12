@@ -150,6 +150,16 @@ export interface CellInterface {
   columnIndex: number;
 }
 
+export interface Cell {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rowIndex: number;
+  columnIndex: number;
+  key: string;
+}
+
 export interface OptionalCellInterface {
   rowIndex?: number;
   columnIndex?: number;
