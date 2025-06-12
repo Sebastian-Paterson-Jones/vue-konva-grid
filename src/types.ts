@@ -1,3 +1,4 @@
+import { Graphics } from "pixi.js";
 import type { ShapeConfig } from "konva/lib/Shape";
 import Konva from "konva";
 import type { HTMLAttributes, Ref } from "vue";
@@ -157,6 +158,7 @@ export interface Cell {
   height: number;
   rowIndex: number;
   columnIndex: number;
+  graphics: Graphics;
   key: string;
 }
 

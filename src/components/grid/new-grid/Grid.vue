@@ -3,6 +3,7 @@
     ref="gridRef"
     class="grid"
     :style="{
+      position: 'relative',
       width: width + 'px',
       height: height + 'px',
       userSelect: 'none',
@@ -15,8 +16,8 @@
       v-model:is-scrolling="isScrolling"
       v-model:horizontal-scroll-direction="horizontalScrollDirection"
       v-model:vertical-scroll-direction="verticalScrollDirection"
-      :container-height="width"
-      :container-width="height"
+      :container-height="height"
+      :container-width="width"
       :estimated-total-height="estimatedTotalHeight"
       :estimated-total-width="estimatedTotalWidth"
     />
@@ -24,11 +25,11 @@
 </template>
 
 <script setup lang="ts">
-import { useScroller } from "@/composables/useScroller";
-import { useGrid } from "@/composables/useGrid";
-import Scroller from "@/components/scroller/Scroller.vue";
-import { Grid } from "@/types/grid";
-import { onMounted, onUnmounted, ref } from "vue";
+import { useScroller } from "../../../composables/useScroller";
+import { useGrid } from "../../../composables/useGrid";
+import Scroller from "../../scroller/Scroller.vue";
+import { Grid } from "../../../types/grid";
+import { onMounted, onUnmounted, ref, watch } from "vue";
 
 // ==== Props ==== //
 const props = withDefaults(defineProps<Grid>(), {
@@ -60,7 +61,9 @@ const {
   scrollerRef,
 });
 const { 
-  initGrid, 
+  initGrid,
+  renderGrid,
+  destroyGrid,
   estimatedTotalWidth, 
   estimatedTotalHeight 
 } = useGrid({
@@ -85,13 +88,21 @@ const {
 });
 // ================ //
 
+// ==== Watchers ==== //
+watch([scrollTop, scrollLeft], () => {
+  requestAnimationFrame(renderGrid)
+})
+// ================ //
+
 // ==== Life cycle ==== //
-onMounted(() => {
-  initGrid();
+onMounted(async () => {
+  await initGrid();
+  renderGrid();
   gridRef.value?.addEventListener("wheel", onWheel);
 });
 onUnmounted(() => {
   gridRef.value?.removeEventListener("wheel", onWheel);
+  destroyGrid();
 });
 // ================ //
 </script>

@@ -1,5 +1,5 @@
 import { computed, ref, Ref } from "vue";
-import { Application, ICanvas } from "pixi.js";
+import { Application, Graphics } from "pixi.js";
 import { AreaProps, Cell, CellInterface, Direction } from "@/types";
 
 export const useGrid = ({
@@ -46,6 +46,7 @@ export const useGrid = ({
   const estimatedTotalWidth = ref(0);
   let columnSizeCache: { size: number, offset: number }[] = [];
   const estimatedTotalHeight = ref(0);
+  const cells: Set<Cell> = new Set();
   // ================ //
 
   // ==== Methods ==== //
@@ -340,8 +341,14 @@ export const useGrid = ({
       bottom: rowIndex,
     } as AreaProps;
   };
+  const destroyCells = () => {
+    cells.forEach(cell => {
+      pixiApp?.stage.removeChild(cell.graphics);
+    });
+    cells.clear();
+  }
   const renderCells = () => {
-    const cellsBuffer: Cell[] = [];
+    destroyCells();
     if (columnsCount > 0 && rowsCount) {
       for (let rowIndex = rowStartIndex(); rowIndex <= rowStopIndex(); rowIndex++) {
         /* Skip frozen rows */
@@ -379,7 +386,15 @@ export const useGrid = ({
           const x = getColumnSizing(columnIndex).offset;
           const width = getColumnSizing(actualRight).offset - x + getColumnWidth(actualRight);
 
-          cellsBuffer.push(
+          const graphics = new Graphics();
+          graphics.setStrokeStyle({
+            width: 5,
+            color: 0xFF0000,
+          });
+          graphics.rect(x, y, width, height);
+          pixiApp?.stage.addChild(graphics);
+
+          cells.add(
             {
               x,
               y,
@@ -387,6 +402,7 @@ export const useGrid = ({
               height,
               rowIndex,
               columnIndex,
+              graphics,
               key: `${rowIndex}:${columnIndex}`,
             }
           );
@@ -394,20 +410,32 @@ export const useGrid = ({
       }
     }
   }
+  const destroyGrid = () => {
+    destroyCells();
+    pixiApp?.destroy();
+  }
+  const renderGrid = () => {
+    renderCells();
+  }
   const initGrid = async () => {
-    pixiApp = new Application({
+    pixiApp = new Application();
+    console.log(gridRef.value)
+    console.log(pixiApp?.canvas)
+    gridRef.value.appendChild(pixiApp?.canvas);
+    estimatedTotalWidth.value = getEstimatedTotalWidth();
+    estimatedTotalHeight.value = getEstimatedTotalHeight();
+    await pixiApp.init({
       background: '#000000',
       resizeTo: gridRef.value,
     });
-    gridRef.value.appendChild(pixiApp?.view as HTMLCanvasElement || null);
-    estimatedTotalWidth.value = getEstimatedTotalWidth();
-    estimatedTotalHeight.value = getEstimatedTotalHeight();
   }
   // ================ //
 
   return {
     pixiApp,
     initGrid,
+    renderGrid,
+    destroyGrid,
     estimatedTotalWidth,
     estimatedTotalHeight,
     getEstimatedTotalWidth,

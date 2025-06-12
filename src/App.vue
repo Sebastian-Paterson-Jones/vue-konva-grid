@@ -8,7 +8,7 @@
 </template>
 
 <script setup>
-import Grid from './components/grid/Grid.vue';
+import Grid from './components/grid/new-grid/Grid.vue';
 </script>
 
 
