@@ -1,6 +1,6 @@
-import { computed, ref, Ref } from "vue";
+import { ref, Ref } from "vue";
 import { Application, Graphics } from "pixi.js";
-import { AreaProps, Cell, CellInterface, Direction } from "@/types";
+import { AreaProps } from "@/types";
 
 export const useGrid = ({
   gridRef,
@@ -48,6 +48,8 @@ export const useGrid = ({
   const estimatedTotalHeight = ref(0);
   let batchedGraphics: Graphics | null = null;
   let renderRequested = false;
+  let visibleCells: Array<{x: number, y: number, width: number, height: number}> = [];
+  let lastViewportHash = '';
   // ================ //
 
   // ==== Methods ==== //
@@ -342,50 +344,60 @@ export const useGrid = ({
       bottom: rowIndex,
     } as AreaProps;
   };
-  const renderCells = () => {
-    if (!pixiApp || columnsCount === 0 || rowsCount === 0) return;
+  
+  const calculateVisibleCells = () => {
+    visibleCells = [];
+    
+    const viewportLeft = scrollLeft.value;
+    const viewportRight = scrollLeft.value + containerWidth;
+    const viewportTop = scrollTop.value;
+    const viewportBottom = scrollTop.value + containerHeight;
 
     for (let rowIndex = rowStartIndex(); rowIndex <= rowStopIndex(); rowIndex++) {
-      /* Skip frozen rows */
-      if (rowIndex < rowsFrozen || isHiddenRow?.(rowIndex)) {
-        continue;
-      }
+      if (rowIndex < rowsFrozen || isHiddenRow?.(rowIndex)) continue;
+      
+      const rowTop = getRowSizing(rowIndex).offset;
+      const rowHeight = getRowHeight(rowIndex);
+      const rowBottom = rowTop + rowHeight;
+      
+      if (rowBottom < viewportTop || rowTop > viewportBottom) continue;
       
       onBeforeRenderRow?.(rowIndex);
 
-      for (
-        let columnIndex = columnStartIndex();
-        columnIndex <= columnStopIndex();
-        columnIndex++
-      ) {
-        /**
-         * Skip frozen columns
-         * Skip merged cells that are out of bounds
-         */
-        if (columnIndex < columnsFrozen) {
-          continue;
-        }
+      for (let columnIndex = columnStartIndex(); columnIndex <= columnStopIndex(); columnIndex++) {
+        if (columnIndex < columnsFrozen || isHiddenCell?.(rowIndex, columnIndex)) continue;
 
         const bounds = getCellBounds(rowIndex, columnIndex);
         const actualBottom = Math.max(rowIndex, bounds.bottom);
         const actualRight = Math.max(columnIndex, bounds.right);
-        if (isHiddenCell?.(rowIndex, columnIndex)) {
-          continue;
-        }
 
-        const y = getRowSizing(rowIndex).offset;
-        const height = getRowSizing(actualBottom).offset - y + getRowHeight(actualBottom);
         const x = getColumnSizing(columnIndex).offset;
+        const y = getRowSizing(rowIndex).offset;
         const width = getColumnSizing(actualRight).offset - x + getColumnWidth(actualRight);
+        const height = getRowSizing(actualBottom).offset - y + getRowHeight(actualBottom);
+        
+        if (x + width < viewportLeft || x > viewportRight) continue;
 
-        batchedGraphics.rect(x, y, width, height);
+        visibleCells.push({ x, y, width, height });
       }
     }
     
+    return visibleCells;
+  };
+
+  const renderCells = () => {
+    if (!pixiApp || !batchedGraphics || columnsCount === 0 || rowsCount === 0) return;
+    const cells = calculateVisibleCells();
+    for (const cell of cells) {
+      batchedGraphics.rect(cell.x, cell.y, cell.width, cell.height);
+    }
     batchedGraphics.stroke({ color: 0x000000, width: 1 });
   }
+
   const destroyGrid = () => {
     batchedGraphics = null;
+    visibleCells = [];
+    lastViewportHash = '';
     renderRequested = false;
     pixiApp?.destroy();
   }
