@@ -46,6 +46,8 @@ export const useGrid = ({
   const estimatedTotalWidth = ref(0);
   let columnSizeCache: { size: number, offset: number }[] = [];
   const estimatedTotalHeight = ref(0);
+  let batchedGraphics: Graphics | null = null;
+  let renderRequested = false;
   // ================ //
 
   // ==== Methods ==== //
@@ -341,58 +343,70 @@ export const useGrid = ({
     } as AreaProps;
   };
   const renderCells = () => {
-    if (columnsCount > 0 && rowsCount) {
-      for (let rowIndex = rowStartIndex(); rowIndex <= rowStopIndex(); rowIndex++) {
-        /* Skip frozen rows */
-        if (rowIndex < rowsFrozen || isHiddenRow?.(rowIndex)) {
+    if (!pixiApp || columnsCount === 0 || rowsCount === 0) return;
+
+    for (let rowIndex = rowStartIndex(); rowIndex <= rowStopIndex(); rowIndex++) {
+      /* Skip frozen rows */
+      if (rowIndex < rowsFrozen || isHiddenRow?.(rowIndex)) {
+        continue;
+      }
+      
+      onBeforeRenderRow?.(rowIndex);
+
+      for (
+        let columnIndex = columnStartIndex();
+        columnIndex <= columnStopIndex();
+        columnIndex++
+      ) {
+        /**
+         * Skip frozen columns
+         * Skip merged cells that are out of bounds
+         */
+        if (columnIndex < columnsFrozen) {
           continue;
         }
-        /**
-         * Do any pre-processing of the row before being renderered.
-         * Useful for `react-table` to call `prepareRow(row)`
-         */
-        onBeforeRenderRow?.(rowIndex);
 
-        for (
-          let columnIndex = columnStartIndex();
-          columnIndex <= columnStopIndex();
-          columnIndex++
-        ) {
-          /**
-           * Skip frozen columns
-           * Skip merged cells that are out of bounds
-           */
-          if (columnIndex < columnsFrozen) {
-            continue;
-          }
-
-          const bounds = getCellBounds(rowIndex, columnIndex);
-          const actualBottom = Math.max(rowIndex, bounds.bottom);
-          const actualRight = Math.max(columnIndex, bounds.right);
-          if (isHiddenCell?.(rowIndex, columnIndex)) {
-            continue;
-          }
-
-          const y = getRowSizing(rowIndex).offset;
-          const height = getRowSizing(actualBottom).offset - y + getRowHeight(actualBottom);
-          const x = getColumnSizing(columnIndex).offset;
-          const width = getColumnSizing(actualRight).offset - x + getColumnWidth(actualRight);
-
-          const graphics = new Graphics();
-          graphics.rect(x, y, width, height);
-          graphics.fill({ color: 0x000000 });
-          graphics.stroke({ color: 0x000000, width: 1 });
-          pixiApp?.stage.addChild(graphics);
+        const bounds = getCellBounds(rowIndex, columnIndex);
+        const actualBottom = Math.max(rowIndex, bounds.bottom);
+        const actualRight = Math.max(columnIndex, bounds.right);
+        if (isHiddenCell?.(rowIndex, columnIndex)) {
+          continue;
         }
+
+        const y = getRowSizing(rowIndex).offset;
+        const height = getRowSizing(actualBottom).offset - y + getRowHeight(actualBottom);
+        const x = getColumnSizing(columnIndex).offset;
+        const width = getColumnSizing(actualRight).offset - x + getColumnWidth(actualRight);
+
+        batchedGraphics.rect(x, y, width, height);
       }
     }
+    
+    batchedGraphics.stroke({ color: 0x000000, width: 1 });
   }
   const destroyGrid = () => {
+    batchedGraphics = null;
+    renderRequested = false;
     pixiApp?.destroy();
   }
   const renderGrid = () => {
-    pixiApp?.stage.removeChildren();
+    if (!pixiApp) return;
+    if (!batchedGraphics) {
+      batchedGraphics = new Graphics();
+      pixiApp.stage.addChild(batchedGraphics);
+    }
+    batchedGraphics.clear();
     renderCells();
+  }
+  
+  const renderGridThrottled = () => {
+    if (renderRequested) return;
+    
+    renderRequested = true;
+    requestAnimationFrame(() => {
+      renderGrid();
+      renderRequested = false;
+    });
   }
   const initGrid = async () => {
     pixiApp = new Application();
@@ -410,6 +424,7 @@ export const useGrid = ({
     pixiApp,
     initGrid,
     renderGrid,
+    renderGridThrottled,
     destroyGrid,
     estimatedTotalWidth,
     estimatedTotalHeight,

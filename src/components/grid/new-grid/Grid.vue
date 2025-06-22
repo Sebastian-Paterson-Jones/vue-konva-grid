@@ -63,10 +63,10 @@ const {
 });
 const { 
   initGrid,
-  renderGrid,
   destroyGrid,
+  renderGridThrottled,
   estimatedTotalWidth, 
-  estimatedTotalHeight 
+  estimatedTotalHeight,
 } = useGrid({
   gridRef,
   rowsCount: props.rowsCount,
@@ -90,21 +90,13 @@ const {
 // ================ //
 
 // ==== Watchers ==== //
-watch([scrollTop, scrollLeft], () => {
-  if (!frameRequested) {
-    frameRequested = true;
-    requestAnimationFrame(() => {
-      renderGrid();
-      frameRequested = false;
-    });
-  }
-})
+watch([scrollTop, scrollLeft], () => renderGridThrottled())
 // ================ //
 
 // ==== Life cycle ==== //
 onMounted(async () => {
   await initGrid();
-  renderGrid();
+  renderGridThrottled();
   gridRef.value?.addEventListener("wheel", onWheel);
 });
 onUnmounted(() => {
