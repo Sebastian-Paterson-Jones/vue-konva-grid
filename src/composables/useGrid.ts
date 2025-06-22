@@ -315,7 +315,7 @@ export const useGrid = ({
     const overscanForward =
       Number(!isScrolling.value || 1);
 
-    return Math.max(0, Math.min(rowsCount - 1, getRowStopIndex(scrollTop.value + getFrozenRowHeight()) + overscanForward));
+    return Math.max(0, Math.min(rowsCount - 1, getRowStopIndex(rowStartIndex()) + overscanForward));
   };
   const columnStartIndex = () => {
     const startIndex = getColumnStartIndex(scrollLeft.value + getFrozenColumnWidth());
@@ -326,12 +326,11 @@ export const useGrid = ({
     return Math.max(0, startIndex - overscanBackward);
   };
   const columnStopIndex = () => {
-    const stopIndex = getColumnStopIndex(scrollLeft.value + getFrozenColumnWidth());
     // Overscan by one item in each direction so that tab/focus works.
     // If there isn't at least one extra item, tab loops back around.
     const overscanForward =
       Number(!isScrolling.value || 1);
-    return Math.max(0, Math.min(columnsCount - 1, stopIndex + overscanForward));
+    return Math.max(0, Math.min(columnsCount - 1, getColumnStopIndex(columnStartIndex()) + overscanForward));
   }
   const getCellBounds = (
     rowIndex, columnIndex
@@ -352,6 +351,8 @@ export const useGrid = ({
     const viewportTop = scrollTop.value;
     const viewportBottom = scrollTop.value + containerHeight;
 
+    console.log(rowStartIndex(), rowStopIndex(), columnStartIndex(), columnStopIndex());
+
     for (let rowIndex = rowStartIndex(); rowIndex <= rowStopIndex(); rowIndex++) {
       if (rowIndex < rowsFrozen || isHiddenRow?.(rowIndex)) continue;
       
@@ -370,8 +371,8 @@ export const useGrid = ({
         const actualBottom = Math.max(rowIndex, bounds.bottom);
         const actualRight = Math.max(columnIndex, bounds.right);
 
-        const x = getColumnSizing(columnIndex).offset;
-        const y = getRowSizing(rowIndex).offset;
+        const x = getColumnSizing(columnIndex).offset - scrollLeft.value;
+        const y = getRowSizing(rowIndex).offset - scrollTop.value;
         const width = getColumnSizing(actualRight).offset - x + getColumnWidth(actualRight);
         const height = getRowSizing(actualBottom).offset - y + getRowHeight(actualBottom);
         
