@@ -49,7 +49,6 @@ export const useGrid = ({
   let batchedGraphics: Graphics | null = null;
   let renderRequested = false;
   let visibleCells: Array<{x: number, y: number, width: number, height: number}> = [];
-  let lastViewportHash = '';
   // ================ //
 
   // ==== Methods ==== //
@@ -397,7 +396,6 @@ export const useGrid = ({
   const destroyGrid = () => {
     batchedGraphics = null;
     visibleCells = [];
-    lastViewportHash = '';
     renderRequested = false;
     pixiApp?.destroy();
   }
