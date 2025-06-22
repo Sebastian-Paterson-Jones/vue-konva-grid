@@ -351,8 +351,6 @@ export const useGrid = ({
     const viewportTop = scrollTop.value;
     const viewportBottom = scrollTop.value + containerHeight;
 
-    console.log(rowStartIndex(), rowStopIndex(), columnStartIndex(), columnStopIndex());
-
     for (let rowIndex = rowStartIndex(); rowIndex <= rowStopIndex(); rowIndex++) {
       if (rowIndex < rowsFrozen || isHiddenRow?.(rowIndex)) continue;
       
