@@ -47,6 +47,7 @@ const props = withDefaults(defineProps<Grid>(), {
 // ==== Refs ==== //
 const gridRef = ref<HTMLDivElement>();
 const scrollerRef = ref<InstanceType<typeof Scroller>>();
+let frameRequested = false;
 // ================ //
 
 // ==== Composables ==== //
@@ -90,7 +91,13 @@ const {
 
 // ==== Watchers ==== //
 watch([scrollTop, scrollLeft], () => {
-  requestAnimationFrame(renderGrid)
+  if (!frameRequested) {
+    frameRequested = true;
+    requestAnimationFrame(() => {
+      renderGrid();
+      frameRequested = false;
+    });
+  }
 })
 // ================ //
 
