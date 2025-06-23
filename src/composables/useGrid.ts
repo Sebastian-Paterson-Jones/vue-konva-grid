@@ -625,8 +625,8 @@ export const useGrid = ({
 
   const renderGrid = () => {
     if (!pixiApp) return;
-    
-    // Initialize graphics objects if they don't exist, ensuring proper layering order
+
+    // initialize graphics (order matters for layering) //
     if (!visibleCellsGraphics) {
       visibleCellsGraphics = new Graphics();
       pixiApp.stage.addChild(visibleCellsGraphics);
@@ -643,14 +643,19 @@ export const useGrid = ({
       intersectionCellsGraphics = new Graphics();
       pixiApp.stage.addChild(intersectionCellsGraphics);
     }
+    // ================ //
     
+    // calculate sizing //
     calculateEstimatedTotalSizing();
-    
-    // Render in order: visible cells (bottom), frozen cells (middle), intersection cells (top)
+    // ================ //
+
+
+    // render graphics //
     renderCells();
     renderFrozenRows();
     renderFrozenColumns();
     renderFrozenIntersectionCells();
+    // ================ //
   }
   
   const renderGridThrottled = () => {
