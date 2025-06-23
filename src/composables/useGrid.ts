@@ -55,7 +55,7 @@ export const useGrid = ({
   // ================ //
 
   // ==== Methods ==== //
-  const getEstimatedTotalWidth = () => {
+  const getEstimatedTotalHeight = () => {
     let totalSizeOfMeasuredRows = 0;
     let lastMeasuredRowIndex = rowSizeCache.length - 1;
   
@@ -73,7 +73,7 @@ export const useGrid = ({
   
     return totalSizeOfMeasuredRows + totalSizeOfUnmeasuredItems;
   };
-  const getEstimatedTotalHeight = () => {
+  const getEstimatedTotalWidth = () => {
     let totalSizeOfMeasuredColumns = 0;
     let lastMeasuredColumnIndex = columnSizeCache.length - 1;
 
