@@ -49,7 +49,6 @@ export const useGrid = ({
   const estimatedTotalHeight = ref(0);
   let batchedGraphics: Graphics | null = null;
   let renderRequested = false;
-  let visibleCells: Array<{x: number, y: number, width: number, height: number}> = [];
   // ================ //
 
   // ==== Methods ==== //
@@ -350,7 +349,7 @@ export const useGrid = ({
   }
   
   const calculateVisibleCells = () => {
-    visibleCells = [];
+    const visibleCells = [];
     
     const viewportLeft = scrollLeft.value;
     const viewportRight = scrollLeft.value + containerWidth;
