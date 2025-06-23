@@ -380,14 +380,16 @@ export const useGrid = ({
         visibleCells.push({ x, y, width, height });
       }
     }
-    
-    console.log(visibleCells)
 
     return visibleCells;
   };
 
   const calculateFrozenRows = () => {
     const frozenRows = [];
+    const viewportLeft = 0;
+    const viewportRight = containerWidth;
+    const viewportTop = 0;
+    const viewportBottom = containerHeight;
 
     for (
       let rowIndex = 0;
@@ -395,10 +397,7 @@ export const useGrid = ({
       rowIndex++
     ) {
       if (isHiddenRow?.(rowIndex)) continue;
-      /**
-       * Do any pre-processing of the row before being renderered.
-       * Useful for `react-table` to call `prepareRow(row)`
-       */
+      
       onBeforeRenderRow?.(rowIndex);
   
       for (
@@ -418,10 +417,14 @@ export const useGrid = ({
           continue;
         }
   
+        // Frozen rows: X scrolls horizontally, Y is fixed (no vertical scroll)
         const x = getColumnSizing(columnIndex).offset - scrollLeft.value;
-        const y = getRowSizing(rowIndex).offset - scrollTop.value;
-        const height = getRowSizing(actualBottom).offset - y + getRowHeight(actualBottom);
-        const width = getColumnSizing(actualRight).offset - x + getColumnWidth(actualRight);
+        const y = getRowSizing(rowIndex).offset;
+        const width = getColumnSizing(actualRight).offset + getColumnWidth(actualRight) - getColumnSizing(columnIndex).offset;
+        const height = getRowSizing(actualBottom).offset + getRowHeight(actualBottom) - getRowSizing(rowIndex).offset;
+        
+        // Skip cells that are completely outside the viewport
+        if (x + width < viewportLeft || x > viewportRight || y + height < viewportTop || y > viewportBottom) continue;
   
         frozenRows.push(
           {
@@ -440,15 +443,16 @@ export const useGrid = ({
   }
   const calculateFrozenColumns = () => {
     const frozenColumns = [];
+    const viewportLeft = 0;
+    const viewportRight = containerWidth;
+    const viewportTop = 0;
+    const viewportBottom = containerHeight;
 
     for (let rowIndex = rowStartIndex(); rowIndex <= rowStopIndex(); rowIndex++) {
       if (rowIndex < rowsFrozen || isHiddenRow?.(rowIndex)) {
         continue;
       }
-      /**
-       * Do any pre-processing of the row before being renderered.
-       * Useful for `react-table` to call `prepareRow(row)`
-       */
+      
       onBeforeRenderRow?.(rowIndex);
   
       for (
@@ -463,10 +467,14 @@ export const useGrid = ({
           continue;
         }
   
-        const x = getColumnSizing(columnIndex).offset - scrollLeft.value;
+        // Frozen columns: X is fixed (no horizontal scroll), Y scrolls vertically
+        const x = getColumnSizing(columnIndex).offset;
         const y = getRowSizing(rowIndex).offset - scrollTop.value;
-        const height = getRowSizing(actualBottom).offset - y + getRowHeight(actualBottom);
-        const width = getColumnSizing(actualRight).offset - x + getColumnWidth(actualRight);
+        const width = getColumnSizing(actualRight).offset + getColumnWidth(actualRight) - getColumnSizing(columnIndex).offset;
+        const height = getRowSizing(actualBottom).offset + getRowHeight(actualBottom) - getRowSizing(rowIndex).offset;
+        
+        // Skip cells that are completely outside the viewport
+        if (x + width < viewportLeft || x > viewportRight || y + height < viewportTop || y > viewportBottom) continue;
   
         frozenColumns.push(
           {
@@ -486,6 +494,10 @@ export const useGrid = ({
 
   const calculateFrozenIntersectionCells = () => {
     const frozenIntersectionCells = [];
+    const viewportLeft = 0;
+    const viewportRight = containerWidth;
+    const viewportTop = 0;
+    const viewportBottom = containerHeight;
     
     for (
       let rowIndex = 0;
@@ -505,10 +517,14 @@ export const useGrid = ({
           continue;
         }
   
-        const x = getColumnSizing(columnIndex).offset - scrollLeft.value;
-        const y = getRowSizing(rowIndex).offset - scrollTop.value;
-        const height = getRowSizing(actualBottom).offset - y + getRowHeight(actualBottom);
-        const width = getColumnSizing(actualRight).offset - x + getColumnWidth(actualRight);
+        // Frozen intersection: Both X and Y are fixed (no scrolling)
+        const x = getColumnSizing(columnIndex).offset;
+        const y = getRowSizing(rowIndex).offset;
+        const width = getColumnSizing(actualRight).offset + getColumnWidth(actualRight) - getColumnSizing(columnIndex).offset;
+        const height = getRowSizing(actualBottom).offset + getRowHeight(actualBottom) - getRowSizing(rowIndex).offset;
+        
+        // Skip cells that are completely outside the viewport
+        if (x + width < viewportLeft || x > viewportRight || y + height < viewportTop || y > viewportBottom) continue;
   
         frozenIntersectionCells.push(
           {
