@@ -35,12 +35,12 @@ import { onMounted, onUnmounted, ref, watch } from "vue";
 const props = withDefaults(defineProps<Grid>(), {
   width: 800,
   height: 600,
-  getRowHeight: () => 20,
   rowsFrozen: 0,
   estimatedRowHeight: 50,
-  getColumnWidth: () => 60,
-  columnsFrozen: 0,
+  getRowHeight: () => 20,
   estimatedColumnWidth: 50,
+  getColumnWidth: () => 40,
+  columnsFrozen: 0,
 });
 // ================ //
 

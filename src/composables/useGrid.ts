@@ -342,6 +342,11 @@ export const useGrid = ({
       bottom: rowIndex,
     } as AreaProps;
   };
+
+  const calculateEstimatedTotalSizing = () => {
+    estimatedTotalWidth.value = getEstimatedTotalWidth();
+    estimatedTotalHeight.value = getEstimatedTotalHeight();
+  }
   
   const calculateVisibleCells = () => {
     visibleCells = [];
@@ -398,6 +403,7 @@ export const useGrid = ({
     renderRequested = false;
     pixiApp?.destroy();
   }
+
   const renderGrid = () => {
     if (!pixiApp) return;
     if (!batchedGraphics) {
@@ -405,6 +411,7 @@ export const useGrid = ({
       pixiApp.stage.addChild(batchedGraphics);
     }
     batchedGraphics.clear();
+    calculateEstimatedTotalSizing();
     renderCells();
   }
   
@@ -424,8 +431,6 @@ export const useGrid = ({
       resizeTo: gridRef.value,
     });
     gridRef.value.appendChild(pixiApp?.canvas);
-    estimatedTotalWidth.value = getEstimatedTotalWidth();
-    estimatedTotalHeight.value = getEstimatedTotalHeight();
   }
   // ================ //
 
