@@ -47,7 +47,10 @@ export const useGrid = ({
   const estimatedTotalWidth = ref(0);
   let columnSizeCache: { size: number, offset: number }[] = [];
   const estimatedTotalHeight = ref(0);
-  let batchedGraphics: Graphics | null = null;
+  let visibleCellsGraphics: Graphics | null = null;
+  let frozenRowsGraphics: Graphics | null = null;
+  let frozenColumnsGraphics: Graphics | null = null;
+  let intersectionCellsGraphics: Graphics | null = null;
   let renderRequested = false;
   // ================ //
 
@@ -543,36 +546,70 @@ export const useGrid = ({
   }
 
   const renderCells = () => {
-    if (!pixiApp || !batchedGraphics || columnsCount === 0 || rowsCount === 0) return;
+    if (!pixiApp || !visibleCellsGraphics || columnsCount === 0 || rowsCount === 0) return;
+    visibleCellsGraphics.clear();
+    
     const cells = calculateVisibleCells();
     for (const cell of cells) {
-      batchedGraphics.rect(cell.x, cell.y, cell.width, cell.height);
+      visibleCellsGraphics.rect(cell.x, cell.y, cell.width, cell.height);
+    }
+    
+    if (cells.length > 0) {
+      visibleCellsGraphics.fill({ color: 0xFFFFFF });
+      visibleCellsGraphics.stroke({ color: 0x000000, width: 1 });
     }
   }
 
   const renderFrozenRows = () => {
+    if (!frozenRowsGraphics) return;
+    frozenRowsGraphics.clear();
+    
     const frozenRows = calculateFrozenRows();
     for (const frozenRow of frozenRows) {
-      batchedGraphics.rect(frozenRow.x, frozenRow.y, frozenRow.width, frozenRow.height);
+      frozenRowsGraphics.rect(frozenRow.x, frozenRow.y, frozenRow.width, frozenRow.height);
+    }
+    
+    if (frozenRows.length > 0) {
+      frozenRowsGraphics.fill({ color: 0xFFFFFF });
+      frozenRowsGraphics.stroke({ color: 0x000000, width: 1 });
     }
   }
 
   const renderFrozenColumns = () => {
+    if (!frozenColumnsGraphics) return;
+    frozenColumnsGraphics.clear();
+    
     const frozenColumns = calculateFrozenColumns();
     for (const frozenColumn of frozenColumns) {
-      batchedGraphics.rect(frozenColumn.x, frozenColumn.y, frozenColumn.width, frozenColumn.height);
+      frozenColumnsGraphics.rect(frozenColumn.x, frozenColumn.y, frozenColumn.width, frozenColumn.height);
+    }
+    
+    if (frozenColumns.length > 0) {
+      frozenColumnsGraphics.fill({ color: 0xFFFFFF });
+      frozenColumnsGraphics.stroke({ color: 0x000000, width: 1 });
     }
   }
 
   const renderFrozenIntersectionCells = () => {
+    if (!intersectionCellsGraphics) return;
+    intersectionCellsGraphics.clear();
+    
     const frozenIntersectionCells = calculateFrozenIntersectionCells();
     for (const frozenIntersectionCell of frozenIntersectionCells) {
-      batchedGraphics.rect(frozenIntersectionCell.x, frozenIntersectionCell.y, frozenIntersectionCell.width, frozenIntersectionCell.height);
+      intersectionCellsGraphics.rect(frozenIntersectionCell.x, frozenIntersectionCell.y, frozenIntersectionCell.width, frozenIntersectionCell.height);
+    }
+    
+    if (frozenIntersectionCells.length > 0) {
+      intersectionCellsGraphics.fill({ color: 0xFFFFFF });
+      intersectionCellsGraphics.stroke({ color: 0x000000, width: 1 });
     }
   }
 
   const destroyGrid = () => {
-    batchedGraphics = null;
+    visibleCellsGraphics = null;
+    frozenRowsGraphics = null;
+    frozenColumnsGraphics = null;
+    intersectionCellsGraphics = null;
     renderRequested = false;
     pixiApp?.destroy();
   }
@@ -588,20 +625,32 @@ export const useGrid = ({
 
   const renderGrid = () => {
     if (!pixiApp) return;
-    if (!batchedGraphics) {
-      batchedGraphics = new Graphics();
-      pixiApp.stage.addChild(batchedGraphics);
+    
+    // Initialize graphics objects if they don't exist, ensuring proper layering order
+    if (!visibleCellsGraphics) {
+      visibleCellsGraphics = new Graphics();
+      pixiApp.stage.addChild(visibleCellsGraphics);
     }
-    batchedGraphics.clear();
+    if (!frozenRowsGraphics) {
+      frozenRowsGraphics = new Graphics();
+      pixiApp.stage.addChild(frozenRowsGraphics);
+    }
+    if (!frozenColumnsGraphics) {
+      frozenColumnsGraphics = new Graphics();
+      pixiApp.stage.addChild(frozenColumnsGraphics);
+    }
+    if (!intersectionCellsGraphics) {
+      intersectionCellsGraphics = new Graphics();
+      pixiApp.stage.addChild(intersectionCellsGraphics);
+    }
+    
     calculateEstimatedTotalSizing();
+    
+    // Render in order: visible cells (bottom), frozen cells (middle), intersection cells (top)
     renderCells();
     renderFrozenRows();
     renderFrozenColumns();
     renderFrozenIntersectionCells();
-
-    // apply styling //
-    batchedGraphics.fill({ color: 0xFFFFFF });
-    batchedGraphics.stroke({ color: 0x000000, width: 1 });
   }
   
   const renderGridThrottled = () => {
