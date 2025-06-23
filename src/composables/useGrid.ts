@@ -1,6 +1,7 @@
 import { ref, Ref } from "vue";
 import { Application, Graphics } from "pixi.js";
 import { AreaProps } from "@/types";
+import { getRowOffset } from "@/helpers/helpers";
 
 export const useGrid = ({
   gridRef,
@@ -388,11 +389,175 @@ export const useGrid = ({
     return visibleCells;
   };
 
+  const calculateFrozenRows = () => {
+    const frozenRows = [];
+
+    for (
+      let rowIndex = 0;
+      rowIndex < Math.min(rowStopIndex(), rowsFrozen);
+      rowIndex++
+    ) {
+      if (isHiddenRow?.(rowIndex)) continue;
+      /**
+       * Do any pre-processing of the row before being renderered.
+       * Useful for `react-table` to call `prepareRow(row)`
+       */
+      onBeforeRenderRow?.(rowIndex);
+  
+      for (
+        let columnIndex = columnStartIndex();
+        columnIndex <= columnStopIndex();
+        columnIndex++
+      ) {
+        /* Skip merged cells columns */
+        if (columnIndex < columnsFrozen) {
+          continue;
+        }
+  
+        const bounds = getCellBounds(rowIndex, columnIndex);
+        const actualBottom = Math.max(rowIndex, bounds.bottom);
+        const actualRight = Math.max(columnIndex, bounds.right);
+        if (isHiddenCell?.(rowIndex, columnIndex)) {
+          continue;
+        }
+  
+        const y = getRowSizing(rowIndex).offset;
+        const height = getRowSizing(actualBottom).offset - y + getRowHeight(actualBottom);
+        const x = getColumnSizing(columnIndex).offset;
+        const width = getColumnSizing(actualRight).offset - x + getColumnWidth(actualRight);
+  
+        frozenRows.push(
+          {
+            x,
+            y,
+            width,
+            height,
+            rowIndex: rowIndex,
+            columnIndex: columnIndex,
+          }
+        );
+      }
+    }
+
+    return frozenRows;
+  }
+  const calculateFrozenColumns = () => {
+    const frozenColumns = [];
+
+    for (let rowIndex = rowStartIndex(); rowIndex <= rowStopIndex(); rowIndex++) {
+      if (rowIndex < rowsFrozen || isHiddenRow?.(rowIndex)) {
+        continue;
+      }
+      /**
+       * Do any pre-processing of the row before being renderered.
+       * Useful for `react-table` to call `prepareRow(row)`
+       */
+      onBeforeRenderRow?.(rowIndex);
+  
+      for (
+        let columnIndex = 0;
+        columnIndex < Math.min(columnStopIndex(), columnsFrozen);
+        columnIndex++
+      ) {
+        const bounds = getCellBounds(rowIndex, columnIndex);
+        const actualBottom = Math.max(rowIndex, bounds.bottom);
+        const actualRight = Math.max(columnIndex, bounds.right);
+        if (isHiddenCell?.(rowIndex, columnIndex)) {
+          continue;
+        }
+  
+        const y = getRowSizing(rowIndex).offset;
+        const height = getRowSizing(actualBottom).offset - y + getRowHeight(actualBottom);
+        const x = getColumnSizing(columnIndex).offset;
+        const width = getColumnSizing(actualRight).offset - x + getColumnWidth(actualRight);
+  
+        frozenColumns.push(
+          {
+            x,
+            y,
+            width,
+            height,
+            rowIndex: rowIndex,
+            columnIndex: columnIndex,
+          }
+        );
+      }
+    }
+
+    return frozenColumns;
+  }
+
+  const calculateFrozenIntersectionCells = () => {
+    const frozenIntersectionCells = [];
+    
+    for (
+      let rowIndex = 0;
+      rowIndex < Math.min(rowStopIndex(), rowsFrozen);
+      rowIndex++
+    ) {
+      if (isHiddenRow?.(rowIndex)) continue;
+      for (
+        let columnIndex = 0;
+        columnIndex < Math.min(columnStopIndex(), columnsFrozen);
+        columnIndex++
+      ) {
+        const bounds = getCellBounds(rowIndex, columnIndex);
+        const actualBottom = Math.max(rowIndex, bounds.bottom);
+        const actualRight = Math.max(columnIndex, bounds.right);
+        if (isHiddenCell?.(rowIndex, columnIndex)) {
+          continue;
+        }
+  
+        const y = getRowSizing(rowIndex).offset;
+        const height = getRowSizing(actualBottom).offset - y + getRowHeight(actualBottom);
+        const x = getColumnSizing(columnIndex).offset;
+        const width = getColumnSizing(actualRight).offset - x + getColumnWidth(actualRight);
+  
+        frozenIntersectionCells.push(
+          {
+            x,
+            y,
+            width,
+            height,
+            rowIndex: rowIndex,
+            columnIndex: columnIndex,
+          }
+        );
+      }
+    }
+
+    return frozenIntersectionCells;
+  }
+
   const renderCells = () => {
     if (!pixiApp || !batchedGraphics || columnsCount === 0 || rowsCount === 0) return;
     const cells = calculateVisibleCells();
     for (const cell of cells) {
       batchedGraphics.rect(cell.x, cell.y, cell.width, cell.height);
+    }
+    batchedGraphics.stroke({ color: 0x000000, width: 1 });
+  }
+
+  const renderFrozenRows = () => {
+    const frozenRows = calculateFrozenRows();
+    for (const frozenRow of frozenRows) {
+      batchedGraphics.rect(frozenRow.x, frozenRow.y, frozenRow.width, frozenRow.height);
+    }
+    batchedGraphics.stroke({ color: 0x000000, width: 1 });
+  }
+
+  const renderFrozenColumns = () => {
+    const frozenColumns = calculateFrozenColumns();
+    for (const frozenColumn of frozenColumns) {
+      batchedGraphics.rect(frozenColumn.x, frozenColumn.y, frozenColumn.width, frozenColumn.height);
+    }
+    batchedGraphics.stroke({ color: 0x000000, width: 1 });
+  }
+
+  const renderFrozenIntersectionCells = () => {
+    const frozenIntersectionCells = calculateFrozenIntersectionCells();
+    for (const frozenIntersectionCell of frozenIntersectionCells) {
+      batchedGraphics.rect(frozenIntersectionCell.x, frozenIntersectionCell.y, frozenIntersectionCell.width, frozenIntersectionCell.height);
     }
     batchedGraphics.stroke({ color: 0x000000, width: 1 });
   }
@@ -413,6 +578,9 @@ export const useGrid = ({
     batchedGraphics.clear();
     calculateEstimatedTotalSizing();
     renderCells();
+    renderFrozenRows();
+    renderFrozenColumns();
+    renderFrozenIntersectionCells();
   }
   
   const renderGridThrottled = () => {
