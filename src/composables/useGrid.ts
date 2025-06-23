@@ -421,9 +421,9 @@ export const useGrid = ({
           continue;
         }
   
-        const y = getRowSizing(rowIndex).offset;
+        const x = getColumnSizing(columnIndex).offset - scrollLeft.value;
+        const y = getRowSizing(rowIndex).offset - scrollTop.value;
         const height = getRowSizing(actualBottom).offset - y + getRowHeight(actualBottom);
-        const x = getColumnSizing(columnIndex).offset;
         const width = getColumnSizing(actualRight).offset - x + getColumnWidth(actualRight);
   
         frozenRows.push(
@@ -466,9 +466,9 @@ export const useGrid = ({
           continue;
         }
   
-        const y = getRowSizing(rowIndex).offset;
+        const x = getColumnSizing(columnIndex).offset - scrollLeft.value;
+        const y = getRowSizing(rowIndex).offset - scrollTop.value;
         const height = getRowSizing(actualBottom).offset - y + getRowHeight(actualBottom);
-        const x = getColumnSizing(columnIndex).offset;
         const width = getColumnSizing(actualRight).offset - x + getColumnWidth(actualRight);
   
         frozenColumns.push(
@@ -508,9 +508,9 @@ export const useGrid = ({
           continue;
         }
   
-        const y = getRowSizing(rowIndex).offset;
+        const x = getColumnSizing(columnIndex).offset - scrollLeft.value;
+        const y = getRowSizing(rowIndex).offset - scrollTop.value;
         const height = getRowSizing(actualBottom).offset - y + getRowHeight(actualBottom);
-        const x = getColumnSizing(columnIndex).offset;
         const width = getColumnSizing(actualRight).offset - x + getColumnWidth(actualRight);
   
         frozenIntersectionCells.push(
@@ -535,6 +535,7 @@ export const useGrid = ({
     for (const cell of cells) {
       batchedGraphics.rect(cell.x, cell.y, cell.width, cell.height);
     }
+    batchedGraphics.fill({ color: 0xFFFFFF });
     batchedGraphics.stroke({ color: 0x000000, width: 1 });
   }
 
@@ -543,6 +544,7 @@ export const useGrid = ({
     for (const frozenRow of frozenRows) {
       batchedGraphics.rect(frozenRow.x, frozenRow.y, frozenRow.width, frozenRow.height);
     }
+    batchedGraphics.fill({ color: 0xFFFFFF });
     batchedGraphics.stroke({ color: 0x000000, width: 1 });
   }
 
@@ -551,6 +553,7 @@ export const useGrid = ({
     for (const frozenColumn of frozenColumns) {
       batchedGraphics.rect(frozenColumn.x, frozenColumn.y, frozenColumn.width, frozenColumn.height);
     }
+    batchedGraphics.fill({ color: 0xFFFFFF });
     batchedGraphics.stroke({ color: 0x000000, width: 1 });
   }
 
@@ -559,6 +562,7 @@ export const useGrid = ({
     for (const frozenIntersectionCell of frozenIntersectionCells) {
       batchedGraphics.rect(frozenIntersectionCell.x, frozenIntersectionCell.y, frozenIntersectionCell.width, frozenIntersectionCell.height);
     }
+    batchedGraphics.fill({ color: 0xFFFFFF });
     batchedGraphics.stroke({ color: 0x000000, width: 1 });
   }
 
