@@ -351,19 +351,14 @@ export const useGrid = ({
   const calculateVisibleCells = () => {
     const visibleCells = [];
     
-    const viewportLeft = scrollLeft.value;
-    const viewportRight = scrollLeft.value + containerWidth;
-    const viewportTop = scrollTop.value;
-    const viewportBottom = scrollTop.value + containerHeight;
+    // Use screen coordinates for viewport bounds (0 to containerWidth/Height)
+    const viewportLeft = 0;
+    const viewportRight = containerWidth;
+    const viewportTop = 0;
+    const viewportBottom = containerHeight;
 
     for (let rowIndex = rowStartIndex(); rowIndex <= rowStopIndex(); rowIndex++) {
       if (rowIndex < rowsFrozen || isHiddenRow?.(rowIndex)) continue;
-      
-      const rowTop = getRowSizing(rowIndex).offset;
-      const rowHeight = getRowHeight(rowIndex);
-      const rowBottom = rowTop + rowHeight;
-      
-      if (rowBottom < viewportTop || rowTop > viewportBottom) continue;
       
       onBeforeRenderRow?.(rowIndex);
 
@@ -376,15 +371,18 @@ export const useGrid = ({
 
         const x = getColumnSizing(columnIndex).offset - scrollLeft.value;
         const y = getRowSizing(rowIndex).offset - scrollTop.value;
-        const width = getColumnSizing(actualRight).offset - x + getColumnWidth(actualRight);
-        const height = getRowSizing(actualBottom).offset - y + getRowHeight(actualBottom);
+        const width = getColumnSizing(actualRight).offset + getColumnWidth(actualRight) - getColumnSizing(columnIndex).offset;
+        const height = getRowSizing(actualBottom).offset + getRowHeight(actualBottom) - getRowSizing(rowIndex).offset;
         
-        if (x + width < viewportLeft || x > viewportRight) continue;
+        // Skip cells that are completely outside the viewport
+        if (x + width < viewportLeft || x > viewportRight || y + height < viewportTop || y > viewportBottom) continue;
 
         visibleCells.push({ x, y, width, height });
       }
     }
     
+    console.log(visibleCells)
+
     return visibleCells;
   };
 
@@ -534,8 +532,6 @@ export const useGrid = ({
     for (const cell of cells) {
       batchedGraphics.rect(cell.x, cell.y, cell.width, cell.height);
     }
-    batchedGraphics.fill({ color: 0xFFFFFF });
-    batchedGraphics.stroke({ color: 0x000000, width: 1 });
   }
 
   const renderFrozenRows = () => {
@@ -543,8 +539,6 @@ export const useGrid = ({
     for (const frozenRow of frozenRows) {
       batchedGraphics.rect(frozenRow.x, frozenRow.y, frozenRow.width, frozenRow.height);
     }
-    batchedGraphics.fill({ color: 0xFFFFFF });
-    batchedGraphics.stroke({ color: 0x000000, width: 1 });
   }
 
   const renderFrozenColumns = () => {
@@ -552,8 +546,6 @@ export const useGrid = ({
     for (const frozenColumn of frozenColumns) {
       batchedGraphics.rect(frozenColumn.x, frozenColumn.y, frozenColumn.width, frozenColumn.height);
     }
-    batchedGraphics.fill({ color: 0xFFFFFF });
-    batchedGraphics.stroke({ color: 0x000000, width: 1 });
   }
 
   const renderFrozenIntersectionCells = () => {
@@ -561,15 +553,21 @@ export const useGrid = ({
     for (const frozenIntersectionCell of frozenIntersectionCells) {
       batchedGraphics.rect(frozenIntersectionCell.x, frozenIntersectionCell.y, frozenIntersectionCell.width, frozenIntersectionCell.height);
     }
-    batchedGraphics.fill({ color: 0xFFFFFF });
-    batchedGraphics.stroke({ color: 0x000000, width: 1 });
   }
 
   const destroyGrid = () => {
     batchedGraphics = null;
-    visibleCells = [];
     renderRequested = false;
     pixiApp?.destroy();
+  }
+
+  const initGrid = async () => {
+    pixiApp = new Application();
+    await pixiApp.init({
+      background: '#ffffff',
+      resizeTo: gridRef.value,
+    });
+    gridRef.value.appendChild(pixiApp?.canvas);
   }
 
   const renderGrid = () => {
@@ -584,6 +582,10 @@ export const useGrid = ({
     renderFrozenRows();
     renderFrozenColumns();
     renderFrozenIntersectionCells();
+
+    // apply styling //
+    batchedGraphics.fill({ color: 0xFFFFFF });
+    batchedGraphics.stroke({ color: 0x000000, width: 1 });
   }
   
   const renderGridThrottled = () => {
@@ -594,14 +596,6 @@ export const useGrid = ({
       renderGrid();
       renderRequested = false;
     });
-  }
-  const initGrid = async () => {
-    pixiApp = new Application();
-    await pixiApp.init({
-      background: '#ffffff',
-      resizeTo: gridRef.value,
-    });
-    gridRef.value.appendChild(pixiApp?.canvas);
   }
   // ================ //
 
