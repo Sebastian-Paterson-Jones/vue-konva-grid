@@ -1,14 +1,18 @@
 <template>
   <Grid 
-    :row-count="1000"
-    :column-count="1000"
-    :frozen-columns="1"
-    :frozen-rows="1"
+    :height="800"
+    :width="900"
+    :rows-count="1000"
+    :columns-count="1000"
+    :columns-frozen="2"
+    :rows-frozen="1"
+    :get-row-height="() => 20"
+    :get-column-width="() => 40"
   />
 </template>
 
 <script setup>
-import Grid from './components/grid/Grid.vue';
+import Grid from './components/grid/new-grid/Grid.vue';
 </script>
 
 

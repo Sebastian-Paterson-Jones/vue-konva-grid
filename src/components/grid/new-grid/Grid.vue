@@ -3,6 +3,7 @@
     ref="gridRef"
     class="grid"
     :style="{
+      position: 'relative',
       width: width + 'px',
       height: height + 'px',
       userSelect: 'none',
@@ -15,8 +16,8 @@
       v-model:is-scrolling="isScrolling"
       v-model:horizontal-scroll-direction="horizontalScrollDirection"
       v-model:vertical-scroll-direction="verticalScrollDirection"
-      :container-height="width"
-      :container-width="height"
+      :container-height="height"
+      :container-width="width"
       :estimated-total-height="estimatedTotalHeight"
       :estimated-total-width="estimatedTotalWidth"
     />
@@ -24,35 +25,48 @@
 </template>
 
 <script setup lang="ts">
-import { useScroller } from "@/composables/useScroller";
-import { useGrid } from "@/composables/useGrid";
-import Scroller from "@/components/scroller/Scroller.vue";
-import { Grid } from "@/types/grid";
-import { onMounted, onUnmounted, ref } from "vue";
+import { useScroller } from "../../../composables/useScroller";
+import { useGrid } from "../../../composables/useGrid";
+import Scroller from "../../scroller/Scroller.vue";
+import { Grid } from "../../../types/grid";
+import { onMounted, onUnmounted, ref, watch } from "vue";
 
 // ==== Props ==== //
 const props = withDefaults(defineProps<Grid>(), {
   width: 800,
   height: 600,
-  getRowHeight: () => 20,
   rowsFrozen: 0,
   estimatedRowHeight: 50,
-  getColumnWidth: () => 60,
-  columnsFrozen: 0,
+  getRowHeight: () => 20,
   estimatedColumnWidth: 50,
+  getColumnWidth: () => 40,
+  columnsFrozen: 0,
 });
 // ================ //
 
 // ==== Refs ==== //
 const gridRef = ref<HTMLDivElement>();
 const scrollerRef = ref<InstanceType<typeof Scroller>>();
+let frameRequested = false;
 // ================ //
 
 // ==== Composables ==== //
+const {
+  onWheel,
+  scrollTop,
+  scrollLeft,
+  isScrolling,
+  horizontalScrollDirection,
+  verticalScrollDirection,
+} = useScroller({
+  scrollerRef,
+});
 const { 
-  initGrid, 
+  initGrid,
+  destroyGrid,
+  renderGridThrottled,
   estimatedTotalWidth, 
-  estimatedTotalHeight 
+  estimatedTotalHeight,
 } = useGrid({
   gridRef,
   rowsCount: props.rowsCount,
@@ -67,30 +81,27 @@ const {
   isHiddenColumn: props.isHiddenColumn,
   isHiddenCell: props.isHiddenCell,
   onBeforeRenderRow: props.onBeforeRenderRow,
-});
-const {
-  onWheel,
-  scrollTop,
-  scrollLeft,
-  isScrolling,
-  horizontalScrollDirection,
-  verticalScrollDirection,
-} = useScroller({
-  scrollerRef,
+  containerHeight: props.height,
+  containerWidth: props.width,
+  scrollTop: scrollTop,
+  scrollLeft: scrollLeft,
+  isScrolling: isScrolling,
 });
 // ================ //
 
-// ==== Data ==== //
-
+// ==== Watchers ==== //
+watch([scrollTop, scrollLeft], () => renderGridThrottled())
 // ================ //
 
 // ==== Life cycle ==== //
-onMounted(() => {
-  initGrid();
+onMounted(async () => {
+  await initGrid();
+  renderGridThrottled();
   gridRef.value?.addEventListener("wheel", onWheel);
 });
 onUnmounted(() => {
   gridRef.value?.removeEventListener("wheel", onWheel);
+  destroyGrid();
 });
 // ================ //
 </script>
