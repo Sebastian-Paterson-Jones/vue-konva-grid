@@ -1,5 +1,6 @@
 import { Cell } from "./cell";
 import { CellArea } from "./cell-area";
+import { CellRenderer } from "./cell-renderer";
 
 export interface Grid {
   /**
@@ -86,5 +87,9 @@ export interface Grid {
    * Called when the grid is before rendering a row
    */
   onBeforeRenderRow?: (rowIndex: number) => void;
+  /**
+   * Cell renderer
+   */
+  cellRenderer?: CellRenderer;
 }
 
