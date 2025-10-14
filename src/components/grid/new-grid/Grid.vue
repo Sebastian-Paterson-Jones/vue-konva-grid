@@ -41,6 +41,7 @@ const props = withDefaults(defineProps<Grid>(), {
   estimatedColumnWidth: 50,
   getColumnWidth: () => 40,
   columnsFrozen: 0,
+  cellRenderer: () => null,
 });
 // ================ //
 
