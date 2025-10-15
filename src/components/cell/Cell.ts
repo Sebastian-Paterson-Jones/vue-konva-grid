@@ -39,6 +39,7 @@ export function cellRenderer(props: Cell) {
     stroke,
     strokeWidth,
     borderRadius,
+    name: 'rect',
     listening: false,
     perfectDrawEnabled: false,
   });
@@ -58,6 +59,7 @@ export function cellRenderer(props: Cell) {
     padding,
     fontStyle,
     color,
+    name: 'text',
     listening: false,
     perfectDrawEnabled: false,
   });

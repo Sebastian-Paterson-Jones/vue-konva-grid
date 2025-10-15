@@ -7,6 +7,8 @@ import { Layer } from "konva/lib/Layer";
 import { Shape } from "konva/lib/Shape";
 import { Group } from "konva/lib/Group";
 import { Stage } from "konva/lib/Stage";
+import Konva from "konva";
+import { cellRenderer } from "@/components/cell/Cell";
 
 export const useGrid = ({
   stageRef,
@@ -63,7 +65,11 @@ export const useGrid = ({
 }) => {
   // === Grid Konva === //
   let stage: Stage | undefined;
-  let cellsLayer: Layer | undefined;
+  // Layers
+  let scrollLayer: Layer | undefined;
+  let frozenRowsLayer: Layer | undefined;
+  let frozenColsLayer: Layer | undefined;
+  let intersectionLayer: Layer | undefined;
   // ================ //
 
 
@@ -73,6 +79,18 @@ export const useGrid = ({
   let columnSizeCache: { size: number, offset: number }[] = [];
   const estimatedTotalHeight = ref(0);
   let renderRequested = false;
+  // Track last visible index ranges for fast pan-path
+  let lastRowStart = -1;
+  let lastRowStop = -1;
+  let lastColStart = -1;
+  let lastColStop = -1;
+
+  // Pools per layer
+  type Pool = { map: Map<string, Group>, free: Group[] };
+  const poolScroll: Pool = { map: new Map(), free: [] };
+  const poolFrozenRows: Pool = { map: new Map(), free: [] };
+  const poolFrozenCols: Pool = { map: new Map(), free: [] };
+  const poolIntersection: Pool = { map: new Map(), free: [] };
   // ================ //
 
   // ==== Methods ==== //
@@ -368,302 +386,393 @@ export const useGrid = ({
     estimatedTotalHeight.value = getEstimatedTotalHeight();
   }
 
-  const renderCell = (cell: Cell) => {
+  const createCellGroup = (cell: Cell): Group => {
     const clickHandler = getCellClickHandler?.(cell.rowIndex, cell.columnIndex);
     const doubleClickHandler = getCellDoubleClickHandler?.(cell.rowIndex, cell.columnIndex);
     const rightClickHandler = getCellRightClickHandler?.(cell.rowIndex, cell.columnIndex);
     const hoverHandler = getCellHoverHandler?.(cell.rowIndex, cell.columnIndex);
-    const renderedCell = getCellRenderer(cell.rowIndex, cell.columnIndex)(cell);
+    const node = getCellRenderer(cell.rowIndex, cell.columnIndex)(cell);
+
+    let group: Group;
+    if (node instanceof Group) {
+      group = node;
+    } else if (node instanceof Shape) {
+      group = new Group({ listening: false, perfectDrawEnabled: false });
+      group.add(node);
+    } else {
+      // Fallback to default renderer to ensure Group
+      const fallback = cellRenderer(cell);
+      group = fallback as Group;
+    }
 
     if (clickHandler) {
-      renderedCell.on("click", () => clickHandler(cell));
+      group.on("click", () => clickHandler(cell));
     }
     if (doubleClickHandler) {
-      renderedCell.on("dblclick", () => doubleClickHandler(cell));
+      group.on("dblclick", () => doubleClickHandler(cell));
     }
     if (rightClickHandler) {
-      renderedCell.on("contextmenu", () => rightClickHandler(cell));
+      group.on("contextmenu", () => rightClickHandler(cell));
     }
     if (hoverHandler) {
-      renderedCell.on("mouseover", () => hoverHandler(cell));
+      group.on("mouseover", () => hoverHandler(cell));
     }
 
-    return renderedCell;
+    return group;
   }
-  
-  const calculateVisibleCells = (layer: Layer): Layer => {
-    // Use screen coordinates for viewport bounds (0 to containerWidth/Height)
-    const viewportLeft = 0;
-    const viewportRight = containerWidth;
-    const viewportTop = 0;
-    const viewportBottom = containerHeight;
 
-    for (let rowIndex = rowStartIndex(); rowIndex <= rowStopIndex(); rowIndex++) {
-      if (rowIndex < rowsFrozen || isHiddenRow?.(rowIndex)) continue;
-      
-      onBeforeRenderRow?.(rowIndex);
-
-      for (let columnIndex = columnStartIndex(); columnIndex <= columnStopIndex(); columnIndex++) {
-        if (columnIndex < columnsFrozen || isHiddenCell?.(rowIndex, columnIndex)) continue;
-
-        const bounds = getCellBounds(rowIndex, columnIndex);
-        const actualBottom = Math.max(rowIndex, bounds.bottom);
-        const actualRight = Math.max(columnIndex, bounds.right);
-
-        const x = getColumnSizing(columnIndex).offset - scrollLeft.value;
-        const y = getRowSizing(rowIndex).offset - scrollTop.value;
-        const width = getColumnSizing(actualRight).offset + getColumnWidth(actualRight) - getColumnSizing(columnIndex).offset;
-        const height = getRowSizing(actualBottom).offset + getRowHeight(actualBottom) - getRowSizing(rowIndex).offset;
-        
-        // Skip cells that are completely outside the viewport
-        if (x + width < viewportLeft || x > viewportRight || y + height < viewportTop || y > viewportBottom) continue;
-
-        const formatting = getCellFormatting(rowIndex, columnIndex);
-        layer.add(renderCell({
-          x,
-          y,
-          width,
-          height,
-          rowIndex, 
-          columnIndex, 
-          text: getCellText(rowIndex, columnIndex),
-          fill: formatting.fill,
-          stroke: formatting.stroke,
-          strokeWidth: formatting.strokeWidth,
-          borderRadius: formatting.borderRadius,
-          fontSize: formatting.fontSize,
-          fontFamily: formatting.fontFamily,
-          fontWeight: formatting.fontWeight,
-          textDecoration: formatting.textDecoration,
-          textAlign: formatting.textAlign,
-          verticalAlign: formatting.verticalAlign,
-          wrap: formatting.wrap,
-          padding: formatting.padding,
-          fontStyle: formatting.fontStyle,
-          color: formatting.color,
-          key: `${rowIndex}-${columnIndex}`,
-        }));
-      }
+  // Acquire a node from pool or create new
+  const acquireNode = (pool: Pool, create: () => Group, layer: Layer, key: string): Group => {
+    let node: Group | undefined = undefined;
+    if (pool.free.length > 0) {
+      node = pool.free.pop();
     }
-
-    return layer;
+    if (!node) {
+      node = create();
+      layer.add(node);
+    } else {
+      layer.add(node);
+    }
+    pool.map.set(key, node);
+    return node;
   };
 
-  const calculateFrozenRows = (layer: Layer): Layer => {
-    const viewportLeft = 0;
-    const viewportRight = containerWidth;
-    const viewportTop = 0;
-    const viewportBottom = containerHeight;
-
-    for (
-      let rowIndex = 0;
-      rowIndex < Math.min(rowStopIndex(), rowsFrozen);
-      rowIndex++
-    ) {
-      if (isHiddenRow?.(rowIndex)) continue;
-      
-      onBeforeRenderRow?.(rowIndex);
-  
-      for (
-        let columnIndex = columnStartIndex();
-        columnIndex <= columnStopIndex();
-        columnIndex++
-      ) {
-        /* Skip merged cells columns */
-        if (columnIndex < columnsFrozen) {
-          continue;
-        }
-  
-        const bounds = getCellBounds(rowIndex, columnIndex);
-        const actualBottom = Math.max(rowIndex, bounds.bottom);
-        const actualRight = Math.max(columnIndex, bounds.right);
-        if (isHiddenCell?.(rowIndex, columnIndex)) {
-          continue;
-        }
-  
-        // Frozen rows: X scrolls horizontally, Y is fixed (no vertical scroll)
-        const x = getColumnSizing(columnIndex).offset - scrollLeft.value;
-        const y = getRowSizing(rowIndex).offset;
-        const width = getColumnSizing(actualRight).offset + getColumnWidth(actualRight) - getColumnSizing(columnIndex).offset;
-        const height = getRowSizing(actualBottom).offset + getRowHeight(actualBottom) - getRowSizing(rowIndex).offset;
-        
-        // Skip cells that are completely outside the viewport
-        if (x + width < viewportLeft || x > viewportRight || y + height < viewportTop || y > viewportBottom) continue;
-  
-        const formatting = getCellFormatting(rowIndex, columnIndex);
-        layer.add(renderCell({
-          x,
-          y,
-          width,
-          height,
-          rowIndex, 
-          columnIndex, 
-          text: getCellText(rowIndex, columnIndex),
-          fill: formatting.fill,
-          stroke: formatting.stroke,
-          strokeWidth: formatting.strokeWidth,
-          borderRadius: formatting.borderRadius,
-          fontSize: formatting.fontSize,
-          fontFamily: formatting.fontFamily,
-          fontWeight: formatting.fontWeight,
-          textDecoration: formatting.textDecoration,
-          textAlign: formatting.textAlign,
-          verticalAlign: formatting.verticalAlign,
-          wrap: formatting.wrap,
-          padding: formatting.padding,
-          fontStyle: formatting.fontStyle,
-          color: formatting.color,
-          key: `${rowIndex}-${columnIndex}`,
-        }));
+  const releaseStaleNodes = (pool: Pool, nextKeys: Set<string>) => {
+    pool.map.forEach((node, key) => {
+      if (!nextKeys.has(key)) {
+        node.off("click dblclick contextmenu mouseover");
+        node.remove();
+        pool.map.delete(key);
+        pool.free.push(node);
       }
+    });
+  };
+
+  const updateNodeProps = (node: Group, cell: Cell, interactive: boolean) => {
+    const rectNode = node.findOne<Shape>(".rect");
+    const textNode = node.findOne<Shape>(".text");
+    if (rectNode) {
+      rectNode.setAttrs({
+        x: cell.x,
+        y: cell.y,
+        width: cell.width,
+        height: cell.height,
+        fill: cell.fill,
+        stroke: cell.stroke,
+        strokeWidth: cell.strokeWidth,
+        borderRadius: cell.borderRadius,
+      });
     }
-
-    return layer;
-  }
-  const calculateFrozenColumns = (layer: Layer): Layer => {
-    const viewportLeft = 0;
-    const viewportRight = containerWidth;
-    const viewportTop = 0;
-    const viewportBottom = containerHeight;
-
-    for (let rowIndex = rowStartIndex(); rowIndex <= rowStopIndex(); rowIndex++) {
-      if (rowIndex < rowsFrozen || isHiddenRow?.(rowIndex)) {
-        continue;
-      }
-      
-      onBeforeRenderRow?.(rowIndex);
-  
-      for (
-        let columnIndex = 0;
-        columnIndex < Math.min(columnStopIndex(), columnsFrozen);
-        columnIndex++
-      ) {
-        const bounds = getCellBounds(rowIndex, columnIndex);
-        const actualBottom = Math.max(rowIndex, bounds.bottom);
-        const actualRight = Math.max(columnIndex, bounds.right);
-        if (isHiddenCell?.(rowIndex, columnIndex)) {
-          continue;
-        }
-  
-        // Frozen columns: X is fixed (no horizontal scroll), Y scrolls vertically
-        const x = getColumnSizing(columnIndex).offset;
-        const y = getRowSizing(rowIndex).offset - scrollTop.value;
-        const width = getColumnSizing(actualRight).offset + getColumnWidth(actualRight) - getColumnSizing(columnIndex).offset;
-        const height = getRowSizing(actualBottom).offset + getRowHeight(actualBottom) - getRowSizing(rowIndex).offset;
-        
-        // Skip cells that are completely outside the viewport
-        if (x + width < viewportLeft || x > viewportRight || y + height < viewportTop || y > viewportBottom) continue;
-  
-        const formatting = getCellFormatting(rowIndex, columnIndex);
-        layer.add(renderCell({
-          x,
-          y,
-          width,
-          height,
-          rowIndex, 
-          columnIndex, 
-          text: getCellText(rowIndex, columnIndex),
-          fill: formatting.fill,
-          stroke: formatting.stroke,
-          strokeWidth: formatting.strokeWidth,
-          borderRadius: formatting.borderRadius,
-          fontSize: formatting.fontSize,
-          fontFamily: formatting.fontFamily,
-          fontWeight: formatting.fontWeight,
-          textDecoration: formatting.textDecoration,
-          textAlign: formatting.textAlign,
-          verticalAlign: formatting.verticalAlign,
-          wrap: formatting.wrap,
-          padding: formatting.padding,
-          fontStyle: formatting.fontStyle,
-          color: formatting.color,
-          key: `${rowIndex}-${columnIndex}`,
-        }));
-      }
+    if (textNode) {
+      textNode.setAttrs({
+        x: cell.x,
+        y: cell.y,
+        width: cell.width,
+        height: cell.height,
+        text: cell.text,
+        fontSize: cell.fontSize,
+        fontFamily: cell.fontFamily,
+        fontWeight: cell.fontWeight,
+        textDecoration: cell.textDecoration,
+        textAlign: cell.textAlign,
+        verticalAlign: cell.verticalAlign,
+        wrap: cell.wrap,
+        padding: cell.padding,
+        fontStyle: cell.fontStyle,
+        fill: cell.color,
+      });
     }
+    node.listening(interactive);
+  };
 
-    return layer;
-  }
-
-  const calculateFrozenIntersectionCells = (layer: Layer): Layer => {
-    const viewportLeft = 0;
-    const viewportRight = containerWidth;
-    const viewportTop = 0;
-    const viewportBottom = containerHeight;
-    
-    for (
-      let rowIndex = 0;
-      rowIndex < Math.min(rowStopIndex(), rowsFrozen);
-      rowIndex++
-    ) {
-      if (isHiddenRow?.(rowIndex)) continue;
-      for (
-        let columnIndex = 0;
-        columnIndex < Math.min(columnStopIndex(), columnsFrozen);
-        columnIndex++
-      ) {
-        const bounds = getCellBounds(rowIndex, columnIndex);
-        const actualBottom = Math.max(rowIndex, bounds.bottom);
-        const actualRight = Math.max(columnIndex, bounds.right);
-        if (isHiddenCell?.(rowIndex, columnIndex)) {
-          continue;
-        }
-  
-        // Frozen intersection: Both X and Y are fixed (no scrolling)
-        const x = getColumnSizing(columnIndex).offset;
-        const y = getRowSizing(rowIndex).offset;
-        const width = getColumnSizing(actualRight).offset + getColumnWidth(actualRight) - getColumnSizing(columnIndex).offset;
-        const height = getRowSizing(actualBottom).offset + getRowHeight(actualBottom) - getRowSizing(rowIndex).offset;
-        
-        // Skip cells that are completely outside the viewport
-        if (x + width < viewportLeft || x > viewportRight || y + height < viewportTop || y > viewportBottom) continue;
-  
-        const formatting = getCellFormatting(rowIndex, columnIndex);
-        layer.add(renderCell({
-          x,
-          y,
-          width,
-          height,
-          rowIndex, 
-          columnIndex, 
-          text: getCellText(rowIndex, columnIndex),
-          fill: formatting.fill,
-          stroke: formatting.stroke,
-          strokeWidth: formatting.strokeWidth,
-          borderRadius: formatting.borderRadius,
-          fontSize: formatting.fontSize,
-          fontFamily: formatting.fontFamily,
-          fontWeight: formatting.fontWeight,
-          textDecoration: formatting.textDecoration,
-          textAlign: formatting.textAlign,
-          verticalAlign: formatting.verticalAlign,
-          wrap: formatting.wrap,
-          padding: formatting.padding,
-          fontStyle: formatting.fontStyle,
-          color: formatting.color,
-          key: `${rowIndex}-${columnIndex}`,
-        }));
-      }
-    }
-
-    return layer;
-  }
-
-  const renderCells = (Layer: Layer) => {
+  const renderCells = () => {
+    if (!scrollLayer || !frozenRowsLayer || !frozenColsLayer || !intersectionLayer) return;
     if (columnsCount === 0 || rowsCount === 0) return;
-    calculateVisibleCells(Layer);
-  }
 
-  const renderFrozenRows = (Layer: Layer) => {
-    calculateFrozenRows(Layer);
-  }
+    const rStart = rowStartIndex();
+    const rStop = rowStopIndex();
+    const cStart = columnStartIndex();
+    const cStop = columnStopIndex();
 
-  const renderFrozenColumns = (Layer: Layer) => {
-    calculateFrozenColumns(Layer);
-  }
+    // ==== Fast path (only pan if ranges unchanged) ==== //
+    if (
+      lastRowStart === rStart &&
+      lastRowStop === rStop &&
+      lastColStart === cStart &&
+      lastColStop === cStop
+    ) {
+      scrollLayer.position({ x: -scrollLeft.value, y: -scrollTop.value });
+      frozenRowsLayer.position({ x: -scrollLeft.value, y: 0 });
+      frozenColsLayer.position({ x: 0, y: -scrollTop.value });
+      intersectionLayer.position({ x: 0, y: 0 });
+      stage?.batchDraw();
+      return;
+    }
+    // ============================ //
 
-  const renderFrozenIntersectionCells = (Layer: Layer) => {
-    calculateFrozenIntersectionCells(Layer);
+    // ==== Update last ranges ==== //
+    lastRowStart = rStart; 
+    lastRowStop = rStop; 
+    lastColStart = cStart; 
+    lastColStop = cStop;
+    // ============================ //
+    
+    // ==== Precompute sizing for visible indices ==== //
+    const rowOffsets: number[] = [];
+    const rowSizes: number[] = [];
+    for (let r = rStart; r <= rStop; r++) {
+      const rs = getRowSizing(r);
+      rowOffsets[r - rStart] = rs.offset;
+      rowSizes[r - rStart] = rs.size;
+    }
+    const colOffsets: number[] = [];
+    const colSizes: number[] = [];
+    for (let c = cStart; c <= cStop; c++) {
+      const cs = getColumnSizing(c);
+      colOffsets[c - cStart] = cs.offset;
+      colSizes[c - cStart] = cs.size;
+    }
+    // ============================ //
+
+    // Position layers
+    scrollLayer.position({ x: -scrollLeft.value, y: -scrollTop.value });
+    frozenRowsLayer.position({ x: -scrollLeft.value, y: 0 });
+    frozenColsLayer.position({ x: 0, y: -scrollTop.value });
+    intersectionLayer.position({ x: 0, y: 0 });
+
+    // Build next key sets per layer
+    const nextScrollKeys = new Set<string>();
+    const nextFrozenRowsKeys = new Set<string>();
+    const nextFrozenColsKeys = new Set<string>();
+    const nextIntersectionKeys = new Set<string>();
+    const interactive = !isScrolling.value;
+
+    // ==== Scrolling area ==== //
+    for (let r = rStart; r <= rStop; r++) {
+      if (r < rowsFrozen || isHiddenRow?.(r)) continue;
+      const rOff = rowOffsets[r - rStart];
+      for (let c = cStart; c <= cStop; c++) {
+        if (c < columnsFrozen || isHiddenCell?.(r, c)) continue;
+        const cOff = colOffsets[c - cStart];
+
+        const bounds = getCellBounds(r, c);
+        const actualBottom = Math.max(r, bounds.bottom);
+        const actualRight = Math.max(c, bounds.right);
+        const width = getColumnSizing(actualRight).offset + getColumnWidth(actualRight) - getColumnSizing(c).offset;
+        const height = getRowSizing(actualBottom).offset + getRowHeight(actualBottom) - getRowSizing(r).offset;
+
+        const formatting = getCellFormatting(r, c);
+        const cell: Cell = {
+          x: cOff,
+          y: rOff,
+          width,
+          height,
+          rowIndex: r,
+          columnIndex: c,
+          text: getCellText(r, c),
+          fill: formatting.fill,
+          stroke: formatting.stroke,
+          strokeWidth: formatting.strokeWidth,
+          borderRadius: formatting.borderRadius,
+          fontSize: formatting.fontSize,
+          fontFamily: formatting.fontFamily,
+          fontWeight: formatting.fontWeight,
+          textDecoration: formatting.textDecoration,
+          textAlign: formatting.textAlign,
+          verticalAlign: formatting.verticalAlign,
+          wrap: formatting.wrap,
+          padding: formatting.padding,
+          fontStyle: formatting.fontStyle,
+          color: formatting.color,
+          key: `${r}-${c}`,
+        } as Cell;
+
+        const key = cell.key as string;
+        nextScrollKeys.add(key);
+        const existing = poolScroll.map.get(key);
+        if (existing) {
+          existing.off("click dblclick contextmenu mouseover");
+          updateNodeProps(existing, cell, interactive);
+          if (interactive) {
+            const clickHandler = getCellClickHandler?.(r, c);
+            const dblHandler = getCellDoubleClickHandler?.(r, c);
+            const ctxHandler = getCellRightClickHandler?.(r, c);
+            const hovHandler = getCellHoverHandler?.(r, c);
+            if (clickHandler) existing.on("click", () => clickHandler(cell));
+            if (dblHandler) existing.on("dblclick", () => dblHandler(cell));
+            if (ctxHandler) existing.on("contextmenu", () => ctxHandler(cell));
+            if (hovHandler) existing.on("mouseover", () => hovHandler(cell));
+          }
+        } else {
+          const node = acquireNode(poolScroll, () => createCellGroup(cell), scrollLayer, key);
+          updateNodeProps(node, cell, interactive);
+        }
+      }
+    }
+    // ============================ //
+
+    // ==== Frozen rows ==== //
+    for (let r = 0; r < Math.min(rStop, rowsFrozen); r++) {
+      if (isHiddenRow?.(r)) continue;
+      const rOff = getRowSizing(r).offset;
+      for (let c = cStart; c <= cStop; c++) {
+        if (c < columnsFrozen || isHiddenCell?.(r, c)) continue;
+        const cOff = colOffsets[c - cStart];
+        const bounds = getCellBounds(r, c);
+        const actualBottom = Math.max(r, bounds.bottom);
+        const actualRight = Math.max(c, bounds.right);
+        const width = getColumnSizing(actualRight).offset + getColumnWidth(actualRight) - getColumnSizing(c).offset;
+        const height = getRowSizing(actualBottom).offset + getRowHeight(actualBottom) - getRowSizing(r).offset;
+
+        const formatting = getCellFormatting(r, c);
+        const cell: Cell = {
+          x: cOff,
+          y: rOff,
+          width,
+          height,
+          rowIndex: r,
+          columnIndex: c,
+          text: getCellText(r, c),
+          fill: formatting.fill,
+          stroke: formatting.stroke,
+          strokeWidth: formatting.strokeWidth,
+          borderRadius: formatting.borderRadius,
+          fontSize: formatting.fontSize,
+          fontFamily: formatting.fontFamily,
+          fontWeight: formatting.fontWeight,
+          textDecoration: formatting.textDecoration,
+          textAlign: formatting.textAlign,
+          verticalAlign: formatting.verticalAlign,
+          wrap: formatting.wrap,
+          padding: formatting.padding,
+          fontStyle: formatting.fontStyle,
+          color: formatting.color,
+          key: `${r}-${c}`,
+        } as Cell;
+        const key = cell.key as string;
+        nextFrozenRowsKeys.add(key);
+        const existing = poolFrozenRows.map.get(key);
+        if (existing) {
+          existing.off("click dblclick contextmenu mouseover");
+          updateNodeProps(existing, cell, interactive);
+        } else {
+          const node = acquireNode(poolFrozenRows, () => createCellGroup(cell), frozenRowsLayer, key);
+          updateNodeProps(node, cell, interactive);
+        }
+      }
+    }
+    // ============================ //
+
+    // ==== Frozen columns ==== //
+    for (let r = rStart; r <= rStop; r++) {
+      if (r < rowsFrozen || isHiddenRow?.(r)) continue;
+      const rOff = rowOffsets[r - rStart];
+      for (let c = 0; c < Math.min(cStop, columnsFrozen); c++) {
+        if (isHiddenCell?.(r, c)) continue;
+        const cOff = getColumnSizing(c).offset;
+        const bounds = getCellBounds(r, c);
+        const actualBottom = Math.max(r, bounds.bottom);
+        const actualRight = Math.max(c, bounds.right);
+        const width = getColumnSizing(actualRight).offset + getColumnWidth(actualRight) - getColumnSizing(c).offset;
+        const height = getRowSizing(actualBottom).offset + getRowHeight(actualBottom) - getRowSizing(r).offset;
+
+        const formatting = getCellFormatting(r, c);
+        const cell: Cell = {
+          x: cOff,
+          y: rOff,
+          width,
+          height,
+          rowIndex: r,
+          columnIndex: c,
+          text: getCellText(r, c),
+          fill: formatting.fill,
+          stroke: formatting.stroke,
+          strokeWidth: formatting.strokeWidth,
+          borderRadius: formatting.borderRadius,
+          fontSize: formatting.fontSize,
+          fontFamily: formatting.fontFamily,
+          fontWeight: formatting.fontWeight,
+          textDecoration: formatting.textDecoration,
+          textAlign: formatting.textAlign,
+          verticalAlign: formatting.verticalAlign,
+          wrap: formatting.wrap,
+          padding: formatting.padding,
+          fontStyle: formatting.fontStyle,
+          color: formatting.color,
+          key: `${r}-${c}`,
+        } as Cell;
+        const key = cell.key as string;
+        nextFrozenColsKeys.add(key);
+        const existing = poolFrozenCols.map.get(key);
+        if (existing) {
+          existing.off("click dblclick contextmenu mouseover");
+          updateNodeProps(existing, cell, interactive);
+        } else {
+          const node = acquireNode(poolFrozenCols, () => createCellGroup(cell), frozenColsLayer, key);
+          updateNodeProps(node, cell, interactive);
+        }
+      }
+    }
+    // ============================ //
+
+    // ==== Intersection cells ==== //
+    for (let r = 0; r < Math.min(rStop, rowsFrozen); r++) {
+      if (isHiddenRow?.(r)) continue;
+      const rOff = getRowSizing(r).offset;
+      for (let c = 0; c < Math.min(cStop, columnsFrozen); c++) {
+        if (isHiddenCell?.(r, c)) continue;
+        const cOff = getColumnSizing(c).offset;
+        const bounds = getCellBounds(r, c);
+        const actualBottom = Math.max(r, bounds.bottom);
+        const actualRight = Math.max(c, bounds.right);
+        const width = getColumnSizing(actualRight).offset + getColumnWidth(actualRight) - getColumnSizing(c).offset;
+        const height = getRowSizing(actualBottom).offset + getRowHeight(actualBottom) - getRowSizing(r).offset;
+
+        const formatting = getCellFormatting(r, c);
+        const cell: Cell = {
+          x: cOff,
+          y: rOff,
+          width,
+          height,
+          rowIndex: r,
+          columnIndex: c,
+          text: getCellText(r, c),
+          fill: formatting.fill,
+          stroke: formatting.stroke,
+          strokeWidth: formatting.strokeWidth,
+          borderRadius: formatting.borderRadius,
+          fontSize: formatting.fontSize,
+          fontFamily: formatting.fontFamily,
+          fontWeight: formatting.fontWeight,
+          textDecoration: formatting.textDecoration,
+          textAlign: formatting.textAlign,
+          verticalAlign: formatting.verticalAlign,
+          wrap: formatting.wrap,
+          padding: formatting.padding,
+          fontStyle: formatting.fontStyle,
+          color: formatting.color,
+          key: `${r}-${c}`,
+        } as Cell;
+        const key = cell.key as string;
+        nextIntersectionKeys.add(key);
+        const existing = poolIntersection.map.get(key);
+        if (existing) {
+          existing.off("click dblclick contextmenu mouseover");
+          updateNodeProps(existing, cell, interactive);
+        } else {
+          const node = acquireNode(poolIntersection, () => createCellGroup(cell), intersectionLayer, key);
+          updateNodeProps(node, cell, interactive);
+        }
+      }
+    }
+    // ============================ //
+
+    // ==== Release ==== //
+    releaseStaleNodes(poolScroll, nextScrollKeys);
+    releaseStaleNodes(poolFrozenRows, nextFrozenRowsKeys);
+    releaseStaleNodes(poolFrozenCols, nextFrozenColsKeys);
+    releaseStaleNodes(poolIntersection, nextIntersectionKeys);
+    // =================== //
   }
 
   const initGrid = () => {
@@ -672,26 +781,35 @@ export const useGrid = ({
       width: containerWidth,
       height: containerHeight,
     });
-    cellsLayer = new Layer();
-    stage.add(cellsLayer);
+    scrollLayer = new Layer();
+    frozenRowsLayer = new Layer();
+    frozenColsLayer = new Layer();
+    intersectionLayer = new Layer();
+
+    stage.add(scrollLayer);
+    stage.add(frozenRowsLayer);
+    stage.add(frozenColsLayer);
+    stage.add(intersectionLayer);
+
     renderGrid();
   }
 
   const renderGrid = () => {
-    if (!stage || !cellsLayer) return;
+    if (!stage || !scrollLayer || !frozenRowsLayer || !frozenColsLayer || !intersectionLayer) return;
 
-    // calculate sizing //
+    // ==== Listeners ==== //
+    const interactive = !isScrolling.value;
+    scrollLayer.listening(interactive);
+    frozenRowsLayer.listening(interactive);
+    frozenColsLayer.listening(interactive);
+    intersectionLayer.listening(interactive);
+    // =================== //
+
+    // ==== Render ==== //
     calculateEstimatedTotalSizing();
-    // ================ //
-
-    // render graphics //
-    cellsLayer.destroyChildren();
-    renderCells(cellsLayer);
-    renderFrozenRows(cellsLayer);
-    renderFrozenColumns(cellsLayer);
-    renderFrozenIntersectionCells(cellsLayer);
-    // ================ //
-    cellsLayer.batchDraw();
+    renderCells();
+    stage.batchDraw();
+    // =================== //
   }
   
   const renderGridThrottled = () => {

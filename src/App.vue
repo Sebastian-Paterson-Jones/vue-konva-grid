@@ -3,7 +3,7 @@
     :height="800"
     :width="900"
     :rows-count="1000"
-    :columns-count="1000"
+    :columns-count="16"
     :columns-frozen="2"
     :rows-frozen="1"
     :get-row-height="() => 20"
