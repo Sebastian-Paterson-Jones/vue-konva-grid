@@ -26,7 +26,10 @@ export function cellRenderer(props: Cell) {
     color,
   } = props;
 
-  const group = new Group();
+  const group = new Group({
+    listening: false,
+    perfectDrawEnabled: false,
+  });
   const rect = new Rect({
     x,
     y,
@@ -36,6 +39,8 @@ export function cellRenderer(props: Cell) {
     stroke,
     strokeWidth,
     borderRadius,
+    listening: false,
+    perfectDrawEnabled: false,
   });
   const text = new Text({
     x,
@@ -53,6 +58,8 @@ export function cellRenderer(props: Cell) {
     padding,
     fontStyle,
     color,
+    listening: false,
+    perfectDrawEnabled: false,
   });
 
   group.add(rect, text);

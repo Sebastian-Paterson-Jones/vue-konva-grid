@@ -63,6 +63,7 @@ export const useGrid = ({
 }) => {
   // === Grid Konva === //
   let stage: Stage | undefined;
+  let cellsLayer: Layer | undefined;
   // ================ //
 
 
@@ -325,8 +326,7 @@ export const useGrid = ({
       Overscan by one item in each direction so that tab/focus works.
       If there isn't at least one extra item, tab loops back around.
     */
-    const overscanBackward =
-      Number(!isScrolling.value || 1);
+    const overscanBackward = isScrolling.value ? 0 : 1;
 
     return Math.max(0, startIndex - overscanBackward)
   };
@@ -335,8 +335,7 @@ export const useGrid = ({
       Overscan by one item in each direction so that tab/focus works.
       If there isn't at least one extra item, tab loops back around.
     */
-    const overscanForward =
-      Number(!isScrolling.value || 1);
+    const overscanForward = isScrolling.value ? 0 : 1;
 
     return Math.max(0, Math.min(rowsCount - 1, getRowStopIndex(rowStartIndex()) + overscanForward));
   };
@@ -344,15 +343,13 @@ export const useGrid = ({
     const startIndex = getColumnStartIndex(scrollLeft.value + getFrozenColumnWidth());
     // Overscan by one item in each direction so that tab/focus works.
     // If there isn't at least one extra item, tab loops back around.
-    const overscanBackward =
-      Number(!isScrolling.value || 1);
+    const overscanBackward = isScrolling.value ? 0 : 1;
     return Math.max(0, startIndex - overscanBackward);
   };
   const columnStopIndex = () => {
     // Overscan by one item in each direction so that tab/focus works.
     // If there isn't at least one extra item, tab loops back around.
-    const overscanForward =
-      Number(!isScrolling.value || 1);
+    const overscanForward = isScrolling.value ? 0 : 1;
     return Math.max(0, Math.min(columnsCount - 1, getColumnStopIndex(columnStartIndex()) + overscanForward));
   }
   const getCellBounds = (
@@ -675,25 +672,26 @@ export const useGrid = ({
       width: containerWidth,
       height: containerHeight,
     });
+    cellsLayer = new Layer();
+    stage.add(cellsLayer);
     renderGrid();
   }
 
   const renderGrid = () => {
-    if (!stage) return;
+    if (!stage || !cellsLayer) return;
 
     // calculate sizing //
     calculateEstimatedTotalSizing();
     // ================ //
 
     // render graphics //
-    const cellsLayer = new Layer();
+    cellsLayer.destroyChildren();
     renderCells(cellsLayer);
     renderFrozenRows(cellsLayer);
     renderFrozenColumns(cellsLayer);
     renderFrozenIntersectionCells(cellsLayer);
     // ================ //
-
-    stage.add(cellsLayer);
+    cellsLayer.batchDraw();
   }
   
   const renderGridThrottled = () => {

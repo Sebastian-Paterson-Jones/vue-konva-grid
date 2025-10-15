@@ -89,6 +89,7 @@ let isRendering = null;
 // ================ //
 
 // ==== Methods ==== //
+const debouncedCancelScrolling = debounce(() => cancelScrolling(), 150);
 const setScrolling = (value: boolean) => {
   isScrolling.value = value;
 };
@@ -109,7 +110,7 @@ const handleScrollY = (e: Event) => {
   emit('onScroll', { scrollTop: scrollTop.value, scrollLeft: scrollLeft.value });
 
   /* Reset isScrolling if required */
-  debounce(cancelScrolling, 150);
+  debouncedCancelScrolling();
 };
 
 const handleScrollX = (e: Event) => {
@@ -124,7 +125,7 @@ const handleScrollX = (e: Event) => {
   emit('onScroll', { scrollLeft: scrollLeft.value, scrollTop: scrollTop.value });
 
   /* Reset isScrolling if required */
-  debounce(cancelScrolling, 150);
+  debouncedCancelScrolling();
 };
 
 const scrollTo = ({ y, x }: Position) => {
