@@ -1,14 +1,7 @@
 import { Color } from "@/enums/color";
+import { Position } from "./position";
 
-export interface Rect {
-  /**
-   * X coordinate of the rectangle
-   */
-  x: number;
-  /**
-   * Y coordinate of the rectangle
-   */
-  y: number;
+export interface Rect extends Position {
   /**
    * Width of the rectangle
    */

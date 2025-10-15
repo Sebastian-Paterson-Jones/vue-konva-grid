@@ -10,6 +10,10 @@ export interface Text {
    */
   fontSize: number;
   /**
+   * Font style of the text
+   */
+  fontStyle: 'normal' | 'italic' | 'bold' | 'italic bold';
+  /**
    * Font family of the text
    */
   fontFamily: string;
@@ -24,9 +28,21 @@ export interface Text {
   /**
    * Text align of the text
    */
-  textAlign: string;
+  textAlign: 'left' | 'right' | 'center' | 'justify';
+  /**
+   * Vertical align of the text
+   */
+  verticalAlign: 'top' | 'bottom' | 'middle';
+  /**
+   * Wrap of the text
+   */
+  wrap: 'word' | 'char' | 'none';
   /**
    * Text color of the text
    */
   color: Color | string;
+  /**
+   * Padding of the text
+   */
+  padding: number;
 }

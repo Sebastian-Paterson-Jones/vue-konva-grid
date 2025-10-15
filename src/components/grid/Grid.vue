@@ -180,8 +180,6 @@ import {
   getColumnOffset as getColumnOffsetHelper,
   getColumnWidth as getColumnWidthHelper,
   getRowHeight as getRowHeightHelper,
-  getEstimatedTotalHeight,
-  getEstimatedTotalWidth,
   getBoundedCells,
   cellIdentifier,
   throttle,

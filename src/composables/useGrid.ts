@@ -1,10 +1,15 @@
 import { ref, Ref } from "vue";
-import { Application, Graphics } from "pixi.js";
 import { AreaProps } from "@/types";
-import { getRowOffset } from "@/helpers/helpers";
+import { Cell } from "@/types/cell";
+import { Text } from "@/types/text";
+import { Rect } from "@/types/rect";
+import { Layer } from "konva/lib/Layer";
+import { Shape } from "konva/lib/Shape";
+import { Group } from "konva/lib/Group";
+import { Stage } from "konva/lib/Stage";
 
 export const useGrid = ({
-  gridRef,
+  stageRef,
   rowsCount,
   getRowHeight,
   estimatedRowHeight,
@@ -21,8 +26,16 @@ export const useGrid = ({
   scrollTop,
   scrollLeft,
   isScrolling,
+  getCellRenderer,
+  getCellText,
+  getCellFormatting,
+  getCellClickHandler,
+  getCellDoubleClickHandler,
+  getCellRightClickHandler,
+  getCellHoverHandler
 }: {
   gridRef: Ref<HTMLDivElement>;
+  stageRef: Ref<HTMLDivElement>;
   rowsCount: number;
   rowsFrozen: number;
   getRowHeight: (rowIndex: number) => number;
@@ -34,23 +47,30 @@ export const useGrid = ({
   isHiddenRow: (rowIndex: number) => boolean;
   isHiddenColumn: (columnIndex: number) => boolean;
   isHiddenCell: (rowIndex: number, columnIndex: number) => boolean;
-  onBeforeRenderRow: (rowIndex: number) => void;
+  getCellRenderer: (rowIndex: number, columnIndex: number) => (props: Cell) => Layer | Shape | Group;
+  getCellText: (rowIndex: number, columnIndex: number) => string;
+  getCellFormatting: (rowIndex: number, columnIndex: number) => Omit<Text, "text"> & Omit<Rect, "x" | "y" | "width" | "height">;
+  getCellClickHandler: (rowIndex: number, columnIndex: number) => (cell: Cell) => void;
+  getCellDoubleClickHandler?: (rowIndex: number, columnIndex: number) => (cell: Cell) => void;
+  getCellRightClickHandler?: (rowIndex: number, columnIndex: number) => (cell: Cell) => void;
+  getCellHoverHandler?: (rowIndex: number, columnIndex: number) => (cell: Cell) => void;
+  onBeforeRenderRow?: (rowIndex: number) => void;
   containerHeight: number;
   containerWidth: number;
   scrollTop: Ref<number>;
   scrollLeft: Ref<number>;
   isScrolling: Ref<boolean>;
 }) => {
-  // ==== Data ==== //
-  let pixiApp: Application | null = null;
+  // === Grid Konva === //
+  let stage: Stage | undefined;
+  // ================ //
+
+
+  // ==== Grid Data ==== //
   let rowSizeCache: { size: number, offset: number }[] = [];
   const estimatedTotalWidth = ref(0);
   let columnSizeCache: { size: number, offset: number }[] = [];
   const estimatedTotalHeight = ref(0);
-  let visibleCellsGraphics: Graphics | null = null;
-  let frozenRowsGraphics: Graphics | null = null;
-  let frozenColumnsGraphics: Graphics | null = null;
-  let intersectionCellsGraphics: Graphics | null = null;
   let renderRequested = false;
   // ================ //
 
@@ -350,10 +370,31 @@ export const useGrid = ({
     estimatedTotalWidth.value = getEstimatedTotalWidth();
     estimatedTotalHeight.value = getEstimatedTotalHeight();
   }
+
+  const renderCell = (cell: Cell) => {
+    const clickHandler = getCellClickHandler?.(cell.rowIndex, cell.columnIndex);
+    const doubleClickHandler = getCellDoubleClickHandler?.(cell.rowIndex, cell.columnIndex);
+    const rightClickHandler = getCellRightClickHandler?.(cell.rowIndex, cell.columnIndex);
+    const hoverHandler = getCellHoverHandler?.(cell.rowIndex, cell.columnIndex);
+    const renderedCell = getCellRenderer(cell.rowIndex, cell.columnIndex)(cell);
+
+    if (clickHandler) {
+      renderedCell.on("click", () => clickHandler(cell));
+    }
+    if (doubleClickHandler) {
+      renderedCell.on("dblclick", () => doubleClickHandler(cell));
+    }
+    if (rightClickHandler) {
+      renderedCell.on("contextmenu", () => rightClickHandler(cell));
+    }
+    if (hoverHandler) {
+      renderedCell.on("mouseover", () => hoverHandler(cell));
+    }
+
+    return renderedCell;
+  }
   
-  const calculateVisibleCells = () => {
-    const visibleCells = [];
-    
+  const calculateVisibleCells = (layer: Layer): Layer => {
     // Use screen coordinates for viewport bounds (0 to containerWidth/Height)
     const viewportLeft = 0;
     const viewportRight = containerWidth;
@@ -380,15 +421,38 @@ export const useGrid = ({
         // Skip cells that are completely outside the viewport
         if (x + width < viewportLeft || x > viewportRight || y + height < viewportTop || y > viewportBottom) continue;
 
-        visibleCells.push({ x, y, width, height });
+        const formatting = getCellFormatting(rowIndex, columnIndex);
+        layer.add(renderCell({
+          x,
+          y,
+          width,
+          height,
+          rowIndex, 
+          columnIndex, 
+          text: getCellText(rowIndex, columnIndex),
+          fill: formatting.fill,
+          stroke: formatting.stroke,
+          strokeWidth: formatting.strokeWidth,
+          borderRadius: formatting.borderRadius,
+          fontSize: formatting.fontSize,
+          fontFamily: formatting.fontFamily,
+          fontWeight: formatting.fontWeight,
+          textDecoration: formatting.textDecoration,
+          textAlign: formatting.textAlign,
+          verticalAlign: formatting.verticalAlign,
+          wrap: formatting.wrap,
+          padding: formatting.padding,
+          fontStyle: formatting.fontStyle,
+          color: formatting.color,
+          key: `${rowIndex}-${columnIndex}`,
+        }));
       }
     }
 
-    return visibleCells;
+    return layer;
   };
 
-  const calculateFrozenRows = () => {
-    const frozenRows = [];
+  const calculateFrozenRows = (layer: Layer): Layer => {
     const viewportLeft = 0;
     const viewportRight = containerWidth;
     const viewportTop = 0;
@@ -429,23 +493,37 @@ export const useGrid = ({
         // Skip cells that are completely outside the viewport
         if (x + width < viewportLeft || x > viewportRight || y + height < viewportTop || y > viewportBottom) continue;
   
-        frozenRows.push(
-          {
-            x,
-            y,
-            width,
-            height,
-            rowIndex: rowIndex,
-            columnIndex: columnIndex,
-          }
-        );
+        const formatting = getCellFormatting(rowIndex, columnIndex);
+        layer.add(renderCell({
+          x,
+          y,
+          width,
+          height,
+          rowIndex, 
+          columnIndex, 
+          text: getCellText(rowIndex, columnIndex),
+          fill: formatting.fill,
+          stroke: formatting.stroke,
+          strokeWidth: formatting.strokeWidth,
+          borderRadius: formatting.borderRadius,
+          fontSize: formatting.fontSize,
+          fontFamily: formatting.fontFamily,
+          fontWeight: formatting.fontWeight,
+          textDecoration: formatting.textDecoration,
+          textAlign: formatting.textAlign,
+          verticalAlign: formatting.verticalAlign,
+          wrap: formatting.wrap,
+          padding: formatting.padding,
+          fontStyle: formatting.fontStyle,
+          color: formatting.color,
+          key: `${rowIndex}-${columnIndex}`,
+        }));
       }
     }
 
-    return frozenRows;
+    return layer;
   }
-  const calculateFrozenColumns = () => {
-    const frozenColumns = [];
+  const calculateFrozenColumns = (layer: Layer): Layer => {
     const viewportLeft = 0;
     const viewportRight = containerWidth;
     const viewportTop = 0;
@@ -479,24 +557,38 @@ export const useGrid = ({
         // Skip cells that are completely outside the viewport
         if (x + width < viewportLeft || x > viewportRight || y + height < viewportTop || y > viewportBottom) continue;
   
-        frozenColumns.push(
-          {
-            x,
-            y,
-            width,
-            height,
-            rowIndex: rowIndex,
-            columnIndex: columnIndex,
-          }
-        );
+        const formatting = getCellFormatting(rowIndex, columnIndex);
+        layer.add(renderCell({
+          x,
+          y,
+          width,
+          height,
+          rowIndex, 
+          columnIndex, 
+          text: getCellText(rowIndex, columnIndex),
+          fill: formatting.fill,
+          stroke: formatting.stroke,
+          strokeWidth: formatting.strokeWidth,
+          borderRadius: formatting.borderRadius,
+          fontSize: formatting.fontSize,
+          fontFamily: formatting.fontFamily,
+          fontWeight: formatting.fontWeight,
+          textDecoration: formatting.textDecoration,
+          textAlign: formatting.textAlign,
+          verticalAlign: formatting.verticalAlign,
+          wrap: formatting.wrap,
+          padding: formatting.padding,
+          fontStyle: formatting.fontStyle,
+          color: formatting.color,
+          key: `${rowIndex}-${columnIndex}`,
+        }));
       }
     }
 
-    return frozenColumns;
+    return layer;
   }
 
-  const calculateFrozenIntersectionCells = () => {
-    const frozenIntersectionCells = [];
+  const calculateFrozenIntersectionCells = (layer: Layer): Layer => {
     const viewportLeft = 0;
     const viewportRight = containerWidth;
     const viewportTop = 0;
@@ -529,133 +621,79 @@ export const useGrid = ({
         // Skip cells that are completely outside the viewport
         if (x + width < viewportLeft || x > viewportRight || y + height < viewportTop || y > viewportBottom) continue;
   
-        frozenIntersectionCells.push(
-          {
-            x,
-            y,
-            width,
-            height,
-            rowIndex: rowIndex,
-            columnIndex: columnIndex,
-          }
-        );
+        const formatting = getCellFormatting(rowIndex, columnIndex);
+        layer.add(renderCell({
+          x,
+          y,
+          width,
+          height,
+          rowIndex, 
+          columnIndex, 
+          text: getCellText(rowIndex, columnIndex),
+          fill: formatting.fill,
+          stroke: formatting.stroke,
+          strokeWidth: formatting.strokeWidth,
+          borderRadius: formatting.borderRadius,
+          fontSize: formatting.fontSize,
+          fontFamily: formatting.fontFamily,
+          fontWeight: formatting.fontWeight,
+          textDecoration: formatting.textDecoration,
+          textAlign: formatting.textAlign,
+          verticalAlign: formatting.verticalAlign,
+          wrap: formatting.wrap,
+          padding: formatting.padding,
+          fontStyle: formatting.fontStyle,
+          color: formatting.color,
+          key: `${rowIndex}-${columnIndex}`,
+        }));
       }
     }
 
-    return frozenIntersectionCells;
+    return layer;
   }
 
-  const renderCells = () => {
-    if (!pixiApp || !visibleCellsGraphics || columnsCount === 0 || rowsCount === 0) return;
-    visibleCellsGraphics.clear();
-    
-    const cells = calculateVisibleCells();
-    for (const cell of cells) {
-      visibleCellsGraphics.rect(cell.x, cell.y, cell.width, cell.height);
-    }
-    
-    if (cells.length > 0) {
-      visibleCellsGraphics.fill({ color: 0xFFFFFF });
-      visibleCellsGraphics.stroke({ color: 0x000000, width: 1 });
-    }
+  const renderCells = (Layer: Layer) => {
+    if (columnsCount === 0 || rowsCount === 0) return;
+    calculateVisibleCells(Layer);
   }
 
-  const renderFrozenRows = () => {
-    if (!frozenRowsGraphics) return;
-    frozenRowsGraphics.clear();
-    
-    const frozenRows = calculateFrozenRows();
-    for (const frozenRow of frozenRows) {
-      frozenRowsGraphics.rect(frozenRow.x, frozenRow.y, frozenRow.width, frozenRow.height);
-    }
-    
-    if (frozenRows.length > 0) {
-      frozenRowsGraphics.fill({ color: 0xFFFFFF });
-      frozenRowsGraphics.stroke({ color: 0x000000, width: 1 });
-    }
+  const renderFrozenRows = (Layer: Layer) => {
+    calculateFrozenRows(Layer);
   }
 
-  const renderFrozenColumns = () => {
-    if (!frozenColumnsGraphics) return;
-    frozenColumnsGraphics.clear();
-    
-    const frozenColumns = calculateFrozenColumns();
-    for (const frozenColumn of frozenColumns) {
-      frozenColumnsGraphics.rect(frozenColumn.x, frozenColumn.y, frozenColumn.width, frozenColumn.height);
-    }
-    
-    if (frozenColumns.length > 0) {
-      frozenColumnsGraphics.fill({ color: 0xFFFFFF });
-      frozenColumnsGraphics.stroke({ color: 0x000000, width: 1 });
-    }
+  const renderFrozenColumns = (Layer: Layer) => {
+    calculateFrozenColumns(Layer);
   }
 
-  const renderFrozenIntersectionCells = () => {
-    if (!intersectionCellsGraphics) return;
-    intersectionCellsGraphics.clear();
-    
-    const frozenIntersectionCells = calculateFrozenIntersectionCells();
-    for (const frozenIntersectionCell of frozenIntersectionCells) {
-      intersectionCellsGraphics.rect(frozenIntersectionCell.x, frozenIntersectionCell.y, frozenIntersectionCell.width, frozenIntersectionCell.height);
-    }
-    
-    if (frozenIntersectionCells.length > 0) {
-      intersectionCellsGraphics.fill({ color: 0xFFFFFF });
-      intersectionCellsGraphics.stroke({ color: 0x000000, width: 1 });
-    }
+  const renderFrozenIntersectionCells = (Layer: Layer) => {
+    calculateFrozenIntersectionCells(Layer);
   }
 
-  const destroyGrid = () => {
-    visibleCellsGraphics = null;
-    frozenRowsGraphics = null;
-    frozenColumnsGraphics = null;
-    intersectionCellsGraphics = null;
-    renderRequested = false;
-    pixiApp?.destroy();
-  }
-
-  const initGrid = async () => {
-    pixiApp = new Application();
-    await pixiApp.init({
-      background: '#ffffff',
-      resizeTo: gridRef.value,
+  const initGrid = () => {
+    stage = new Stage({
+      container: stageRef.value,
+      width: containerWidth,
+      height: containerHeight,
     });
-    gridRef.value.appendChild(pixiApp?.canvas);
+    renderGrid();
   }
 
   const renderGrid = () => {
-    if (!pixiApp) return;
+    if (!stage) return;
 
-    // initialize graphics (order matters for layering) //
-    if (!visibleCellsGraphics) {
-      visibleCellsGraphics = new Graphics();
-      pixiApp.stage.addChild(visibleCellsGraphics);
-    }
-    if (!frozenRowsGraphics) {
-      frozenRowsGraphics = new Graphics();
-      pixiApp.stage.addChild(frozenRowsGraphics);
-    }
-    if (!frozenColumnsGraphics) {
-      frozenColumnsGraphics = new Graphics();
-      pixiApp.stage.addChild(frozenColumnsGraphics);
-    }
-    if (!intersectionCellsGraphics) {
-      intersectionCellsGraphics = new Graphics();
-      pixiApp.stage.addChild(intersectionCellsGraphics);
-    }
-    // ================ //
-    
     // calculate sizing //
     calculateEstimatedTotalSizing();
     // ================ //
 
-
     // render graphics //
-    renderCells();
-    renderFrozenRows();
-    renderFrozenColumns();
-    renderFrozenIntersectionCells();
+    const cellsLayer = new Layer();
+    renderCells(cellsLayer);
+    renderFrozenRows(cellsLayer);
+    renderFrozenColumns(cellsLayer);
+    renderFrozenIntersectionCells(cellsLayer);
     // ================ //
+
+    stage.add(cellsLayer);
   }
   
   const renderGridThrottled = () => {
@@ -670,11 +708,9 @@ export const useGrid = ({
   // ================ //
 
   return {
-    pixiApp,
     initGrid,
     renderGrid,
     renderGridThrottled,
-    destroyGrid,
     estimatedTotalWidth,
     estimatedTotalHeight,
     getEstimatedTotalWidth,

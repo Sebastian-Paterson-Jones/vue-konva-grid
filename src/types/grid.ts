@@ -1,6 +1,10 @@
 import { Cell } from "./cell";
 import { CellArea } from "./cell-area";
-import { CellRenderer } from "./cell-renderer";
+import { Rect } from "./rect";
+import { Text } from "./text";
+import { Layer } from "konva/lib/Layer";
+import { Shape } from "konva/lib/Shape";
+import { Group } from "konva/lib/Group";
 
 export interface Grid {
   /**
@@ -90,6 +94,47 @@ export interface Grid {
   /**
    * Cell renderer
    */
-  cellRenderer?: CellRenderer;
+  getCellRenderer: (
+    rowIndex: number,
+    columnIndex: number
+  ) => (props: Cell) => Layer | Shape | Group;
+  /**
+   * Get the text of a cell
+   */
+  getCellText: (rowIndex: number, columnIndex: number) => string;
+  /**
+   * Get the formatting of a cell
+   */
+  getCellFormatting: (
+    rowIndex: number,
+    columnIndex: number
+  ) => Omit<Text, "text"> & Omit<Rect, "x" | "y" | "width" | "height">;
+  /**
+   * Get the click handler of a cell
+   */
+  getCellClickHandler?: (
+    rowIndex: number,
+    columnIndex: number
+  ) => (cell: Cell) => void;
+  /**
+   * Get the double click handler of a cell
+   */
+  getCellDoubleClickHandler?: (
+    rowIndex: number,
+    columnIndex: number
+  ) => (cell: Cell) => void;
+  /**
+   * Get the right click handler of a cell
+   */
+  getCellRightClickHandler?: (
+    rowIndex: number,
+    columnIndex: number
+  ) => (cell: Cell) => void;
+  /**
+   * Get the hover handler of a cell
+   */
+  getCellHoverHandler?: (
+    rowIndex: number,
+    columnIndex: number
+  ) => (cell: Cell) => void;
 }
-
