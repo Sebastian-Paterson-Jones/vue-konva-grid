@@ -76,6 +76,9 @@ const scrollerRef = ref<InstanceType<typeof Scroller>>();
 // ==== Composables ==== //
 const {
   onWheel,
+  onTouchStart,
+  onTouchMove,
+  onTouchEnd,
   scrollTop,
   scrollLeft,
   isScrolling,
@@ -128,9 +131,15 @@ onMounted(async () => {
   initGrid();
   renderGridThrottled();
   gridRef.value?.addEventListener("wheel", onWheel);
+  gridRef.value?.addEventListener("touchstart", onTouchStart, { passive: true });
+  gridRef.value?.addEventListener("touchmove", onTouchMove, { passive: false });
+  gridRef.value?.addEventListener("touchend", onTouchEnd, { passive: true });
 });
 onUnmounted(() => {
   gridRef.value?.removeEventListener("wheel", onWheel);
+  gridRef.value?.removeEventListener("touchstart", onTouchStart as any);
+  gridRef.value?.removeEventListener("touchmove", onTouchMove as any);
+  gridRef.value?.removeEventListener("touchend", onTouchEnd as any);
 });
 // ================ //
 </script>

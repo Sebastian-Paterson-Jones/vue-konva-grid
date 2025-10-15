@@ -20,6 +20,16 @@ export const useScroller = ({
     event.preventDefault();
     scrollerRef.value?.onWheel(event);
   };
+  const onTouchStart = (event: TouchEvent) => {
+    scrollerRef.value?.onTouchStart?.(event);
+  };
+  const onTouchEnd = (event: TouchEvent) => {
+    scrollerRef.value?.onTouchEnd?.(event);
+  };
+  const onTouchMove = (event: TouchEvent) => {
+    event.preventDefault();
+    scrollerRef.value?.onTouchMove?.(event);
+  };
   // ================ //
 
   return {
@@ -28,6 +38,9 @@ export const useScroller = ({
     isScrolling,
     horizontalScrollDirection,
     verticalScrollDirection,
-    onWheel
+    onWheel,
+    onTouchStart,
+    onTouchMove,
+    onTouchEnd
   }
 }

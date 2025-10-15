@@ -1,11 +1,11 @@
 <template>
   <Grid 
-    :width="200"
-    :height="300"
+    :width="400"
+    :height="600"
     :rows-count="1000"
-    :columns-count="16"
-    :columns-frozen="2"
-    :rows-frozen="1"
+    :columns-count="1000"
+    :columns-frozen="0"
+    :rows-frozen="0"
     :get-row-height="() => 30"
     :get-column-width="() => 60"
   />
