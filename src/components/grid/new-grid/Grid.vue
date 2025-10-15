@@ -43,8 +43,8 @@ const props = withDefaults(defineProps<Grid>(), {
   rowsFrozen: 0,
   estimatedRowHeight: 40,
   getRowHeight: () => 40,
-  estimatedColumnWidth: 80,
-  getColumnWidth: () => 80,
+  estimatedColumnWidth: 60,
+  getColumnWidth: () => 60,
   columnsFrozen: 0,
   getCellRenderer: () => cellRenderer,
   getCellText: (rowIndex, columnIndex) => `${rowIndex}-${columnIndex}`,
@@ -115,7 +115,7 @@ const {
   getCellClickHandler: props.getCellClickHandler,
   getCellDoubleClickHandler: props.getCellDoubleClickHandler,
   getCellRightClickHandler: props.getCellRightClickHandler,
-  getCellHoverHandler: props.getCellHoverHandler,
+  getCellHoverHandler: props.getCellHoverHandler
 });
 // ================ //
 

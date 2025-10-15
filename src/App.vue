@@ -1,13 +1,13 @@
 <template>
   <Grid 
-    :height="800"
-    :width="900"
+    :width="200"
+    :height="300"
     :rows-count="1000"
     :columns-count="16"
     :columns-frozen="2"
     :rows-frozen="1"
-    :get-row-height="() => 20"
-    :get-column-width="() => 40"
+    :get-row-height="() => 30"
+    :get-column-width="() => 60"
   />
 </template>
 

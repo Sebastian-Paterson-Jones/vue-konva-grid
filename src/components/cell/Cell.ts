@@ -64,6 +64,8 @@ export function cellRenderer(props: Cell) {
     perfectDrawEnabled: false,
   });
 
+  group.setAttr('rectRef', rect);
+  group.setAttr('textRef', text);
   group.add(rect, text);
   return group;
 }

@@ -4,6 +4,7 @@ import { Cell } from "@/types/cell";
 import { Text } from "@/types/text";
 import { Rect } from "@/types/rect";
 import { Layer } from "konva/lib/Layer";
+import { FastLayer } from "konva/lib/FastLayer";
 import { Shape } from "konva/lib/Shape";
 import { Group } from "konva/lib/Group";
 import { Stage } from "konva/lib/Stage";
@@ -34,7 +35,7 @@ export const useGrid = ({
   getCellClickHandler,
   getCellDoubleClickHandler,
   getCellRightClickHandler,
-  getCellHoverHandler
+  getCellHoverHandler,
 }: {
   gridRef: Ref<HTMLDivElement>;
   stageRef: Ref<HTMLDivElement>;
@@ -449,9 +450,17 @@ export const useGrid = ({
   };
 
   const updateNodeProps = (node: Group, cell: Cell, interactive: boolean) => {
-    const rectNode = node.findOne<Shape>(".rect");
-    const textNode = node.findOne<Shape>(".text");
-    if (rectNode) {
+    const rectNode = node.getAttr('rectRef') as Shape | undefined;
+    const textNode = node.getAttr('textRef') as Shape | undefined;
+    const prev = (node.getAttr('prev') as any) || {};
+
+    const posOrSizeChanged =
+      prev.x !== cell.x ||
+      prev.y !== cell.y ||
+      prev.width !== cell.width ||
+      prev.height !== cell.height;
+
+    if (rectNode && posOrSizeChanged) {
       rectNode.setAttrs({
         x: cell.x,
         y: cell.y,
@@ -462,27 +471,95 @@ export const useGrid = ({
         strokeWidth: cell.strokeWidth,
         borderRadius: cell.borderRadius,
       });
+    } else if (rectNode) {
+      // Update style-only changes if needed
+      if (
+        prev.fill !== cell.fill ||
+        prev.stroke !== cell.stroke ||
+        prev.strokeWidth !== cell.strokeWidth ||
+        prev.borderRadius !== cell.borderRadius
+      ) {
+        rectNode.setAttrs({
+          fill: cell.fill,
+          stroke: cell.stroke,
+          strokeWidth: cell.strokeWidth,
+          borderRadius: cell.borderRadius,
+        });
+      }
     }
+
     if (textNode) {
-      textNode.setAttrs({
-        x: cell.x,
-        y: cell.y,
-        width: cell.width,
-        height: cell.height,
-        text: cell.text,
-        fontSize: cell.fontSize,
-        fontFamily: cell.fontFamily,
-        fontWeight: cell.fontWeight,
-        textDecoration: cell.textDecoration,
-        textAlign: cell.textAlign,
-        verticalAlign: cell.verticalAlign,
-        wrap: cell.wrap,
-        padding: cell.padding,
-        fontStyle: cell.fontStyle,
-        fill: cell.color,
-      });
+      const textChanged = prev.text !== cell.text;
+      if (posOrSizeChanged || textChanged) {
+        textNode.setAttrs({
+          x: cell.x,
+          y: cell.y,
+          width: cell.width,
+          height: cell.height,
+          text: cell.text,
+          fontSize: cell.fontSize,
+          fontFamily: cell.fontFamily,
+          fontWeight: cell.fontWeight,
+          textDecoration: cell.textDecoration,
+          textAlign: cell.textAlign,
+          verticalAlign: cell.verticalAlign,
+          wrap: cell.wrap,
+          padding: cell.padding,
+          fontStyle: cell.fontStyle,
+          fill: cell.color,
+        });
+      } else {
+        // Style-only changes
+        if (
+          prev.fontSize !== cell.fontSize ||
+          prev.fontFamily !== cell.fontFamily ||
+          prev.fontWeight !== cell.fontWeight ||
+          prev.textDecoration !== cell.textDecoration ||
+          prev.textAlign !== cell.textAlign ||
+          prev.verticalAlign !== cell.verticalAlign ||
+          prev.wrap !== cell.wrap ||
+          prev.padding !== cell.padding ||
+          prev.fontStyle !== cell.fontStyle ||
+          prev.color !== cell.color
+        ) {
+          textNode.setAttrs({
+            fontSize: cell.fontSize,
+            fontFamily: cell.fontFamily,
+            fontWeight: cell.fontWeight,
+            textDecoration: cell.textDecoration,
+            textAlign: cell.textAlign,
+            verticalAlign: cell.verticalAlign,
+            wrap: cell.wrap,
+            padding: cell.padding,
+            fontStyle: cell.fontStyle,
+            fill: cell.color,
+          });
+        }
+      }
     }
+
     node.listening(interactive);
+    node.setAttr('prev', {
+      x: cell.x,
+      y: cell.y,
+      width: cell.width,
+      height: cell.height,
+      fill: cell.fill,
+      stroke: cell.stroke,
+      strokeWidth: cell.strokeWidth,
+      borderRadius: cell.borderRadius,
+      text: cell.text,
+      fontSize: cell.fontSize,
+      fontFamily: cell.fontFamily,
+      fontWeight: cell.fontWeight,
+      textDecoration: cell.textDecoration,
+      textAlign: cell.textAlign,
+      verticalAlign: cell.verticalAlign,
+      wrap: cell.wrap,
+      padding: cell.padding,
+      fontStyle: cell.fontStyle,
+      color: cell.color,
+    });
   };
 
   const renderCells = () => {
@@ -558,8 +635,12 @@ export const useGrid = ({
         const bounds = getCellBounds(r, c);
         const actualBottom = Math.max(r, bounds.bottom);
         const actualRight = Math.max(c, bounds.right);
-        const width = getColumnSizing(actualRight).offset + getColumnWidth(actualRight) - getColumnSizing(c).offset;
-        const height = getRowSizing(actualBottom).offset + getRowHeight(actualBottom) - getRowSizing(r).offset;
+        const rightMeta = getColumnSizing(actualRight);
+        const thisColMeta = getColumnSizing(c);
+        const width = rightMeta.offset + rightMeta.size - thisColMeta.offset;
+        const bottomMeta = getRowSizing(actualBottom);
+        const thisRowMeta = getRowSizing(r);
+        const height = bottomMeta.offset + bottomMeta.size - thisRowMeta.offset;
 
         const formatting = getCellFormatting(r, c);
         const cell: Cell = {
@@ -591,18 +672,7 @@ export const useGrid = ({
         nextScrollKeys.add(key);
         const existing = poolScroll.map.get(key);
         if (existing) {
-          existing.off("click dblclick contextmenu mouseover");
           updateNodeProps(existing, cell, interactive);
-          if (interactive) {
-            const clickHandler = getCellClickHandler?.(r, c);
-            const dblHandler = getCellDoubleClickHandler?.(r, c);
-            const ctxHandler = getCellRightClickHandler?.(r, c);
-            const hovHandler = getCellHoverHandler?.(r, c);
-            if (clickHandler) existing.on("click", () => clickHandler(cell));
-            if (dblHandler) existing.on("dblclick", () => dblHandler(cell));
-            if (ctxHandler) existing.on("contextmenu", () => ctxHandler(cell));
-            if (hovHandler) existing.on("mouseover", () => hovHandler(cell));
-          }
         } else {
           const node = acquireNode(poolScroll, () => createCellGroup(cell), scrollLayer, key);
           updateNodeProps(node, cell, interactive);
@@ -621,8 +691,12 @@ export const useGrid = ({
         const bounds = getCellBounds(r, c);
         const actualBottom = Math.max(r, bounds.bottom);
         const actualRight = Math.max(c, bounds.right);
-        const width = getColumnSizing(actualRight).offset + getColumnWidth(actualRight) - getColumnSizing(c).offset;
-        const height = getRowSizing(actualBottom).offset + getRowHeight(actualBottom) - getRowSizing(r).offset;
+        const rightMeta = getColumnSizing(actualRight);
+        const thisColMeta = getColumnSizing(c);
+        const width = rightMeta.offset + rightMeta.size - thisColMeta.offset;
+        const bottomMeta = getRowSizing(actualBottom);
+        const thisRowMeta = getRowSizing(r);
+        const height = bottomMeta.offset + bottomMeta.size - thisRowMeta.offset;
 
         const formatting = getCellFormatting(r, c);
         const cell: Cell = {
@@ -653,7 +727,6 @@ export const useGrid = ({
         nextFrozenRowsKeys.add(key);
         const existing = poolFrozenRows.map.get(key);
         if (existing) {
-          existing.off("click dblclick contextmenu mouseover");
           updateNodeProps(existing, cell, interactive);
         } else {
           const node = acquireNode(poolFrozenRows, () => createCellGroup(cell), frozenRowsLayer, key);
@@ -673,8 +746,12 @@ export const useGrid = ({
         const bounds = getCellBounds(r, c);
         const actualBottom = Math.max(r, bounds.bottom);
         const actualRight = Math.max(c, bounds.right);
-        const width = getColumnSizing(actualRight).offset + getColumnWidth(actualRight) - getColumnSizing(c).offset;
-        const height = getRowSizing(actualBottom).offset + getRowHeight(actualBottom) - getRowSizing(r).offset;
+        const rightMeta = getColumnSizing(actualRight);
+        const thisColMeta = getColumnSizing(c);
+        const width = rightMeta.offset + rightMeta.size - thisColMeta.offset;
+        const bottomMeta = getRowSizing(actualBottom);
+        const thisRowMeta = getRowSizing(r);
+        const height = bottomMeta.offset + bottomMeta.size - thisRowMeta.offset;
 
         const formatting = getCellFormatting(r, c);
         const cell: Cell = {
@@ -705,7 +782,6 @@ export const useGrid = ({
         nextFrozenColsKeys.add(key);
         const existing = poolFrozenCols.map.get(key);
         if (existing) {
-          existing.off("click dblclick contextmenu mouseover");
           updateNodeProps(existing, cell, interactive);
         } else {
           const node = acquireNode(poolFrozenCols, () => createCellGroup(cell), frozenColsLayer, key);
@@ -725,8 +801,12 @@ export const useGrid = ({
         const bounds = getCellBounds(r, c);
         const actualBottom = Math.max(r, bounds.bottom);
         const actualRight = Math.max(c, bounds.right);
-        const width = getColumnSizing(actualRight).offset + getColumnWidth(actualRight) - getColumnSizing(c).offset;
-        const height = getRowSizing(actualBottom).offset + getRowHeight(actualBottom) - getRowSizing(r).offset;
+        const rightMeta = getColumnSizing(actualRight);
+        const thisColMeta = getColumnSizing(c);
+        const width = rightMeta.offset + rightMeta.size - thisColMeta.offset;
+        const bottomMeta = getRowSizing(actualBottom);
+        const thisRowMeta = getRowSizing(r);
+        const height = bottomMeta.offset + bottomMeta.size - thisRowMeta.offset;
 
         const formatting = getCellFormatting(r, c);
         const cell: Cell = {
@@ -757,7 +837,6 @@ export const useGrid = ({
         nextIntersectionKeys.add(key);
         const existing = poolIntersection.map.get(key);
         if (existing) {
-          existing.off("click dblclick contextmenu mouseover");
           updateNodeProps(existing, cell, interactive);
         } else {
           const node = acquireNode(poolIntersection, () => createCellGroup(cell), intersectionLayer, key);
@@ -781,7 +860,7 @@ export const useGrid = ({
       width: containerWidth,
       height: containerHeight,
     });
-    scrollLayer = new Layer();
+    scrollLayer = new FastLayer({});
     frozenRowsLayer = new Layer();
     frozenColsLayer = new Layer();
     intersectionLayer = new Layer();
