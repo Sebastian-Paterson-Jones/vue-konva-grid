@@ -8,7 +8,6 @@ import { FastLayer } from "konva/lib/FastLayer";
 import { Shape } from "konva/lib/Shape";
 import { Group } from "konva/lib/Group";
 import { Stage } from "konva/lib/Stage";
-import Konva from "konva";
 import { cellRenderer } from "@/components/cell/Cell";
 
 export const useGrid = ({
@@ -860,7 +859,7 @@ export const useGrid = ({
       width: containerWidth,
       height: containerHeight,
     });
-    scrollLayer = new FastLayer({});
+    scrollLayer = new Layer({ listening: false, perfectDrawEnabled: false });
     frozenRowsLayer = new Layer();
     frozenColsLayer = new Layer();
     intersectionLayer = new Layer();
