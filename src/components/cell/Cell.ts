@@ -1,27 +1,71 @@
-import * as PIXI from "pixi.js";
-import { CellRenderer } from "../../types/cell-renderer";
+import { Cell } from "../../types/cell";
+import { Group } from "konva/lib/Group";
+import { Rect } from "konva/lib/shapes/Rect";
+import { Text } from "konva/lib/shapes/Text";
 
-export const cellRenderer: CellRenderer = (graphics, props) => {
-  graphics.rect(props.x, props.y, props.width, props.height);
-  graphics.fill({ color: props.fill });
-  graphics.stroke({ color: props.stroke, width: props.strokeWidth });
+export function cellRenderer(props: Cell) {
+  const {
+    x,
+    y,
+    width,
+    height,
+    text: textContent,
+    fill,
+    stroke,
+    strokeWidth,
+    borderRadius,
+    fontSize,
+    fontFamily,
+    fontWeight,
+    textDecoration,
+    textAlign,
+    verticalAlign,
+    wrap,
+    padding,
+    fontStyle,
+    color,
+  } = props;
 
-  if (graphics.parent) {
-    const textStyle = new PIXI.TextStyle({
-      fontSize: props.fontSize || 12,
-      fontFamily: props.fontFamily || "Arial",
-      fontWeight: (props.fontWeight as any) || "normal",
-      fill: props.fill,
-    });
+  const group = new Group({
+    listening: false,
+    perfectDrawEnabled: false,
+  });
+  const rect = new Rect({
+    x,
+    y,
+    width,
+    height,
+    fill,
+    stroke,
+    strokeWidth,
+    borderRadius,
+    name: 'rect',
+    listening: false,
+    perfectDrawEnabled: false,
+  });
+  const text = new Text({
+    x,
+    y,
+    width,
+    height,
+    text: textContent,
+    fontSize,
+    fontFamily,
+    fontWeight,
+    textDecoration,
+    textAlign,
+    verticalAlign,
+    wrap,
+    padding,
+    fontStyle,
+    color,
+    name: 'text',
+    listening: false,
+    perfectDrawEnabled: false,
+  });
 
-    const pixiText = new PIXI.Text({
-      text: "Hello World",
-      style: textStyle,
-    });
-
-    pixiText.x = props.x + 5;
-    pixiText.y = props.y + (props.height - pixiText.height) / 2;
-
-    graphics.parent.addChild(pixiText);
-  }
-};
+  group.setAttr('rectRef', rect);
+  group.setAttr('textRef', text);
+  group.add(rect, text);
+  return group;
+}

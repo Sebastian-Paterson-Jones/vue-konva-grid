@@ -11,15 +11,7 @@ export interface Cell extends Rect, Text {
    */
   columnIndex: number;
   /**
-   * Value of the cell (value stored, not text displayed)
+   * Key of the cell
    */
-  value: any;
-  /**
-   * Called when the cell is clicked
-   */
-  onClick?: (event: MouseEvent) => void;
-  /**
-   * Called when the cell is updated
-   */
-  onUpdate?: (value: string) => void;
+  key: string;
 }

@@ -9,6 +9,7 @@
       userSelect: 'none',
     }"
   >
+    <div ref="stageRef" />
     <Scroller
       ref="scrollerRef"
       v-model:scroll-top="scrollTop"
@@ -25,35 +26,59 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted, onUnmounted, ref, watch } from "vue";
 import { useScroller } from "../../../composables/useScroller";
 import { useGrid } from "../../../composables/useGrid";
 import Scroller from "../../scroller/Scroller.vue";
 import { Grid } from "../../../types/grid";
-import { onMounted, onUnmounted, ref, watch } from "vue";
+import { Text } from "../../../types/text";
+import { Rect } from "../../../types/rect";
+import { Color } from "../../../enums/color";
+import { cellRenderer } from "../../cell/Cell";
 
 // ==== Props ==== //
 const props = withDefaults(defineProps<Grid>(), {
   width: 800,
   height: 600,
   rowsFrozen: 0,
-  estimatedRowHeight: 50,
-  getRowHeight: () => 20,
-  estimatedColumnWidth: 50,
-  getColumnWidth: () => 40,
+  estimatedRowHeight: 40,
+  getRowHeight: () => 40,
+  estimatedColumnWidth: 60,
+  getColumnWidth: () => 60,
   columnsFrozen: 0,
-  cellRenderer: () => null,
+  getCellRenderer: () => cellRenderer,
+  getCellText: (rowIndex, columnIndex) => `${rowIndex}-${columnIndex}`,
+  getCellFormatting: (): Omit<Text, "text"> & Omit<Rect, "x" | "y" | "width" | "height"> => ({
+    fill: "white",
+    stroke: Color.Gray,
+    strokeWidth: 1,
+    borderRadius: 0,
+    fontSize: 12,
+    fontStyle: "normal",
+    fontFamily: "Arial",
+    fontWeight: "normal",
+    textDecoration: "none",
+    textAlign: "left",
+    verticalAlign: "middle",
+    wrap: "none",
+    padding: 0,
+    color: Color.Black
+  }),
 });
 // ================ //
 
 // ==== Refs ==== //
 const gridRef = ref<HTMLDivElement>();
+const stageRef = ref<HTMLDivElement>();
 const scrollerRef = ref<InstanceType<typeof Scroller>>();
-let frameRequested = false;
 // ================ //
 
 // ==== Composables ==== //
 const {
   onWheel,
+  onTouchStart,
+  onTouchMove,
+  onTouchEnd,
   scrollTop,
   scrollLeft,
   isScrolling,
@@ -64,12 +89,12 @@ const {
 });
 const { 
   initGrid,
-  destroyGrid,
   renderGridThrottled,
   estimatedTotalWidth, 
   estimatedTotalHeight,
 } = useGrid({
   gridRef,
+  stageRef,
   rowsCount: props.rowsCount,
   getRowHeight: props.getRowHeight,
   rowsFrozen: props.rowsFrozen,
@@ -87,6 +112,13 @@ const {
   scrollTop: scrollTop,
   scrollLeft: scrollLeft,
   isScrolling: isScrolling,
+  getCellRenderer: props.getCellRenderer,
+  getCellText: props.getCellText,
+  getCellFormatting: props.getCellFormatting,
+  getCellClickHandler: props.getCellClickHandler,
+  getCellDoubleClickHandler: props.getCellDoubleClickHandler,
+  getCellRightClickHandler: props.getCellRightClickHandler,
+  getCellHoverHandler: props.getCellHoverHandler
 });
 // ================ //
 
@@ -96,13 +128,18 @@ watch([scrollTop, scrollLeft], () => renderGridThrottled())
 
 // ==== Life cycle ==== //
 onMounted(async () => {
-  await initGrid();
+  initGrid();
   renderGridThrottled();
   gridRef.value?.addEventListener("wheel", onWheel);
+  gridRef.value?.addEventListener("touchstart", onTouchStart, { passive: true });
+  gridRef.value?.addEventListener("touchmove", onTouchMove, { passive: false });
+  gridRef.value?.addEventListener("touchend", onTouchEnd, { passive: true });
 });
 onUnmounted(() => {
   gridRef.value?.removeEventListener("wheel", onWheel);
-  destroyGrid();
+  gridRef.value?.removeEventListener("touchstart", onTouchStart as any);
+  gridRef.value?.removeEventListener("touchmove", onTouchMove as any);
+  gridRef.value?.removeEventListener("touchend", onTouchEnd as any);
 });
 // ================ //
 </script>

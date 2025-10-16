@@ -1,38 +1,32 @@
 <template>
-  <v-group v-if="!isOverlay">
+  <v-group>
     <v-rect
       :config="{
-        x: x + 0.5,
-        y: y + 0.5,
-        height: height,
-        width: width,
-        fill: fill,
-        stroke: stroke,
-        strokeWidth: strokeWidth,
-        shadowForStrokeEnabled: false,
-        strokeScaleEnabled: false,
-        hitStrokeWidth: 0,
-        fillEnabled: fillEnabled,
-        strokeEnabled: strokeEnabled,
+        x: data.x,
+        y: data.y,
+        height: data.height,
+        width: data.width,
+        fill: data.fill,
+        stroke: data.stroke,
+        strokeWidth: data.strokeWidth,
       }"
     />
     <v-text
-      v-if="value"
+      v-if="data.text"
       :config="{
-        x: x,
-        y: y,
-        height: height,
-        width: width,
-        text: value,
-        fill: textColor,
-        verticalAlign: verticalAlign,
-        align: align,
-        fontFamily: fontFamily,
-        fontStyle: textStyle,
-        textDecoration: textDecoration,
-        padding: padding,
-        wrap: wrap,
-        fontSize: fontSize,
+        x: data.x,
+        y: data.y,
+        height: data.height,
+        width: data.width,
+        text: data.text,
+        verticalAlign: data.verticalAlign,
+        align: data.textAlign,
+        fontFamily: data.fontFamily,
+        fontWeight: data.fontWeight,
+        textDecoration: data.textDecoration,
+        padding: data.padding,
+        wrap: data.wrap,
+        fontSize: data.fontSize,
         hitStrokeWidth: 0,
       }"
     />
@@ -40,61 +34,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, withDefaults } from "vue";
-import { CellProps } from "./types";
+import { Cell } from "../../types/cell";
 
 // ==== props ==== //
-const props = withDefaults(defineProps<CellProps>(), {
-  x: 0,
-  y: 0,
-  fill: "white",
-  stroke: "#d9d9d9",
-  strokeWidth: 1,
-  strokeEnabled: true,
-  textColor: "#333",
-  padding: 5,
-  fontWeight: "normal",
-  fontStyle: "normal",
-  align: "left",
-  verticalAlign: "middle",
-  fontFamily: "Arial",
-  fontSize: 12,
-  wrap: "none",
-  globalCompositeOperation: "multiply",
-  isOverlay: false,
-});
-// ================ //
-
-// === computed === //
-const fillEnabled = computed(() => !!props.fill);
-const textStyle = computed(() => `${props.fontWeight} ${props.fontStyle}`);
-const groupProps = computed(() => {
-  const {
-    x,
-    y,
-    width,
-    height,
-    value,
-    fill,
-    strokeWidth,
-    stroke,
-    align,
-    verticalAlign,
-    textColor,
-    padding,
-    fontFamily,
-    fontSize,
-    wrap,
-    fontWeight,
-    fontStyle,
-    textDecoration,
-    strokeEnabled,
-    globalCompositeOperation,
-    isOverlay,
-    ...rest
-  } = props;
-
-  return rest;
-});
+const props = defineProps<{ data: Cell }>();
 // ================ //
 </script>
